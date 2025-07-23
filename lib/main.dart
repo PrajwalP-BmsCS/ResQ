@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/services.dart';
+import 'package:req_demo/OCR/ocr_ml_kit.dart';
 
 void main() {
   runApp(const MyApp());
@@ -14,9 +15,11 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'YOLOv5n ONNX Demo',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
+        
       ),
       home: const MyHomePage(),
     );
@@ -117,6 +120,16 @@ class _MyHomePageState extends State<MyHomePage> {
               _detectionResult,
               textAlign: TextAlign.center,
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+
+            ElevatedButton(
+              onPressed: (){
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => OCRHomePage()),
+                );
+              },
+              child: const Text('Select Image '),
             ),
           ],
         ),
