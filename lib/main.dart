@@ -1,130 +1,124 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:camera/camera.dart';
 import 'package:flutter/services.dart';
 
-void main() {
-  runApp(const MyApp());
+List<CameraDescription> cameras = [];
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  cameras = await availableCameras();
+  runApp(MyApp());
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'YOLOv5n ONNX Demo',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
-      ),
-      home: const MyHomePage(),
+      home: CameraScreen(),
+      debugShowCheckedModeBanner: false,
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key});
-
+class CameraScreen extends StatefulWidget {
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  _CameraScreenState createState() => _CameraScreenState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  File? _image;
-  String _detectionResult = "No detections yet";
+class _CameraScreenState extends State<CameraScreen> {
+  late CameraController _controller;
+  bool _isDetecting = false;
   static const platform = MethodChannel('onnx_channel');
 
-  /// Run inference on the selected image by calling Kotlin
-  Future<void> _runONNXInference(String imagePath) async {
-    try {
-      print("Running ONNX inference on image: $imagePath");
-
-      final resultPath =
-          await platform.invokeMethod<String>('runYOLO', {'path': imagePath});
-      print("Inference completed, annotated image path: $resultPath");
-
-      if (resultPath != null && File(resultPath).existsSync()) {
-        setState(() {
-          // Add a cache-busting query to force reload
-          final cacheBustedPath = '$resultPath?v=${DateTime.now().millisecondsSinceEpoch}';
-          _image = File(resultPath);
-          _detectionResult = "Objects detected and annotated!";
-        });
-      } else {
-        setState(() {
-          _detectionResult = resultPath ?? "No detection output from model";
-        });
-      }
-    } on PlatformException catch (e) {
-      setState(() {
-        _detectionResult = "ONNX Runtime error: ${e.message}";
-      });
-    } catch (e) {
-      setState(() {
-        _detectionResult = "Unexpected error: $e";
-      });
-    }
+  @override
+  void initState() {
+    super.initState();
+    initCamera();
   }
 
-  /// Pick image from gallery and run detection
-  Future<void> _pickImage() async {
-    final picker = ImagePicker();
+  Future<void> initCamera() async {
+    _controller = CameraController(
+      cameras[0],
+      ResolutionPreset.medium,
+      enableAudio: false,
+      imageFormatGroup: ImageFormatGroup.yuv420,
+    );
+
+    await _controller.initialize();
+    await _controller.setFlashMode(FlashMode.off);
+
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  Future<void> detectObjects() async {
+    if (_isDetecting) return;
+
+    setState(() {
+      _isDetecting = true;
+    });
+
     try {
-      final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-      if (pickedFile != null) {
-        setState(() {
-          _image = File(pickedFile.path); // Temporarily show original
-          _detectionResult = "Running YOLOv5 inference...";
-          print("Picked image: ${pickedFile.path}");
-        });
-        await _runONNXInference(pickedFile.path);
-      } else {
-        setState(() {
-          _detectionResult = "No image selected.";
-        });
-      }
+      final XFile imageFile = await _controller.takePicture();
+      final String imagePath = imageFile.path;
+
+      final List<dynamic> result =
+          await platform.invokeMethod('runYOLO', {'path': imagePath});
+
+      print("✅ Detected Objects: $result");
     } catch (e) {
-      setState(() {
-        _detectionResult = "Image picker error: $e";
-      });
+      print("❌ Error: $e");
     }
+
+    setState(() {
+      _isDetecting = false;
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    if (!_controller.value.isInitialized) {
+      return Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('YOLOv5n Object Detection'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            if (_image != null)
-              // Unique key ensures Flutter doesn't reuse old image widget
-              Image.file(
-                _image!,
-                key: ValueKey(DateTime.now().millisecondsSinceEpoch),
-                height: 300,
-                fit: BoxFit.contain,
-              )
-            else
-              const Text('Pick an image to detect objects'),
-            const SizedBox(height: 20),
-            Text(
-              _detectionResult,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: FittedBox(
+              fit: BoxFit.cover,
+              child: SizedBox(
+                width: _controller.value.previewSize!.height,
+                height: _controller.value.previewSize!.width,
+                child: CameraPreview(_controller),
+              ),
             ),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _pickImage,
-        tooltip: 'Pick Image',
-        child: const Icon(Icons.image),
+          ),
+          Positioned(
+            bottom: 40,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: ElevatedButton(
+                onPressed: detectObjects,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.black.withOpacity(0.7),
+                  padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                ),
+                child: _isDetecting
+                    ? CircularProgressIndicator(color: Colors.white)
+                    : Text("Detect Objects",
+                        style: TextStyle(color: Colors.white, fontSize: 18)),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
