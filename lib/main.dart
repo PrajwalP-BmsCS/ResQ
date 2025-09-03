@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:flutter/services.dart';
-import 'dart:io';
 
 List<CameraDescription> cameras = [];
 
@@ -34,15 +33,22 @@ class _CameraScreenState extends State<CameraScreen> {
   @override
   void initState() {
     super.initState();
+    initCamera();
+  }
+
+  Future<void> initCamera() async {
     _controller = CameraController(
       cameras[0],
       ResolutionPreset.medium,
       enableAudio: false,
+      imageFormatGroup: ImageFormatGroup.yuv420,
     );
-    _controller.initialize().then((_) {
-      if (!mounted) return;
-      setState(() {});
-    });
+
+    await _controller.initialize();
+    await _controller.setFlashMode(FlashMode.off);
+
+    if (!mounted) return;
+    setState(() {});
   }
 
   Future<void> detectObjects() async {
@@ -53,11 +59,9 @@ class _CameraScreenState extends State<CameraScreen> {
     });
 
     try {
-      // 📸 Take picture and save
       final XFile imageFile = await _controller.takePicture();
       final String imagePath = imageFile.path;
 
-      // 🧠 Call native ONNX detection with image path
       final List<dynamic> result =
           await platform.invokeMethod('runYOLO', {'path': imagePath});
 
@@ -86,7 +90,16 @@ class _CameraScreenState extends State<CameraScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          Positioned.fill(child: CameraPreview(_controller)),
+          Positioned.fill(
+            child: FittedBox(
+              fit: BoxFit.cover,
+              child: SizedBox(
+                width: _controller.value.previewSize!.height,
+                height: _controller.value.previewSize!.width,
+                child: CameraPreview(_controller),
+              ),
+            ),
+          ),
           Positioned(
             bottom: 40,
             left: 0,
