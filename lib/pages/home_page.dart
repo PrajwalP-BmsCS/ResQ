@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:req_demo/pages/ocr_ml_kit.dart';
 import 'object_detection.dart';
 import 'dummy_screen.dart';
 import 'package:camera/camera.dart';
@@ -11,7 +12,7 @@ class HomePage extends StatelessWidget {
   Widget build(BuildContext context) {
     final List<Map<String, dynamic>> features = [
       {'title': 'Object Detection', 'route': ObjectDetectionScreen(cameras: cameras)},
-      {'title': 'OCR', 'route': DummyScreen(title: 'OCR')},
+      {'title': 'OCR', 'route': OCRHomePage()},
       {'title': 'Navigation', 'route': DummyScreen(title: 'Navigation')},
       {'title': 'Scene Description', 'route': DummyScreen(title: 'Scene Description')},
     ];
