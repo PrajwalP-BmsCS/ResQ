@@ -19,7 +19,7 @@ class HomePage extends StatelessWidget {
       {
         "title": "OCR",
         "icon": Icons.text_fields,
-        "page": PlaceholderPage(title: "OCR")
+        "page": OCRHomePage()
       },
       {
         "title": "Navigation",
