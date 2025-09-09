@@ -14,7 +14,7 @@ class HomePage extends StatelessWidget {
       {
         "title": "Object Detection",
         "icon": Icons.camera_alt,
-        "page": ObjectDetectionScreen(cameras: cameras)
+        "page": ObjectDetectionScreen()
       },
       {
         "title": "OCR",
