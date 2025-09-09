@@ -3,7 +3,7 @@ import 'package:req_demo/pages/ocr_ml_kit.dart';
 import 'object_detection.dart';
 import 'settings_page.dart';
 import 'package:camera/camera.dart';
-
+import 'package:req_demo/pages/navigation.dart';
 class HomePage extends StatelessWidget {
   final List<CameraDescription> cameras;
   HomePage({required this.cameras});
@@ -24,7 +24,7 @@ class HomePage extends StatelessWidget {
       {
         "title": "Navigation",
         "icon": Icons.navigation,
-        "page": PlaceholderPage(title: "Navigation")
+        "page": WalkingRouteMapPage()
       },
       {
         "title": "Scene Description",
