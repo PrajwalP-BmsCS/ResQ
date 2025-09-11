@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
+import 'package:location/location.dart';
 
 class WalkingRouteMapPage extends StatefulWidget {
   const WalkingRouteMapPage({super.key});
@@ -27,20 +27,45 @@ class _WalkingRouteMapPageState extends State<WalkingRouteMapPage> {
   }
 
   /// Get current user location
-  Future<void> _getCurrentLocation() async {
-    try {
-      Position pos = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-      );
-      setState(() {
-        _currentPos = LatLng(pos.latitude, pos.longitude);
-      });
-    } catch (e) {
-      setState(() {
-        result = "Error getting location: $e";
-      });
+Future<void> _getCurrentLocation() async {
+  try {
+    Location location = Location();
+
+    // Ask for permission
+    bool serviceEnabled = await location.serviceEnabled();
+    if (!serviceEnabled) {
+      serviceEnabled = await location.requestService();
+      if (!serviceEnabled) {
+        setState(() {
+          result = "Location services are disabled.";
+        });
+        return;
+      }
     }
+
+    PermissionStatus permissionGranted = await location.hasPermission();
+    if (permissionGranted == PermissionStatus.denied) {
+      permissionGranted = await location.requestPermission();
+      if (permissionGranted != PermissionStatus.granted) {
+        setState(() {
+          result = "Location permission denied.";
+        });
+        return;
+      }
+    }
+
+    // Get current location
+    LocationData pos = await location.getLocation();
+
+    setState(() {
+      _currentPos = LatLng(pos.latitude!, pos.longitude!);
+    });
+  } catch (e) {
+    setState(() {
+      result = "Error getting location: $e";
+    });
   }
+}
 
   /// Geocode address to LatLng using Nominatim
   Future<LatLng?> _geocodeAddress(String address) async {
