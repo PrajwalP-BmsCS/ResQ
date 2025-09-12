@@ -3,10 +3,37 @@ import 'package:req_demo/pages/ocr_ml_kit.dart';
 import 'object_detection.dart';
 import 'settings_page.dart';
 import 'package:camera/camera.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:req_demo/pages/navigation.dart';
 class HomePage extends StatelessWidget {
   final List<CameraDescription> cameras;
   HomePage({required this.cameras});
+
+  Future<List<String>> _loadEmergencyNumbers() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    return prefs.getStringList("emergency_numbers") ?? ["6362555489"];
+  }
+
+  Future<void> _callNumber(String number) async {
+    final Uri url = Uri(scheme: "tel", path: number);
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url);
+    } else {
+      debugPrint("❌ Could not launch $number");
+    }
+  }
+
+  void _triggerSOS(BuildContext context) async {
+    final numbers = await _loadEmergencyNumbers();
+    for (String number in numbers) {
+      _callNumber(number);
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("🚨 Emergency SOS Triggered! Calling saved numbers...")),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -14,7 +41,7 @@ class HomePage extends StatelessWidget {
       {
         "title": "Object Detection",
         "icon": Icons.camera_alt,
-        "page": ObjectDetectionScreen(cameras: cameras)
+        "page": ObjectDetectionScreen()
       },
       {
         "title": "OCR",
@@ -147,12 +174,7 @@ class HomePage extends StatelessWidget {
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
               )),
-          onPressed: () {
-            // TODO: implement SOS
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text("🚨 Emergency SOS Triggered!")),
-            );
-          },
+          onPressed: () => _triggerSOS(context),
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
