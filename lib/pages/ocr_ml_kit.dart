@@ -31,27 +31,45 @@ class _OCRHomePageState extends State<OCRHomePage> {
 
     final imageFile = File(pickedFile.path);
     final inputImage = InputImage.fromFile(imageFile);
-    final textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
 
-    final RecognizedText recognizedText =
-        await textRecognizer.processImage(inputImage);
+    // Use Latin & Devanagari only
+    final latinRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
+    final devanagariRecognizer =
+        TextRecognizer(script: TextRecognitionScript.devanagiri);
 
     String scannedText = '';
-    for (TextBlock block in recognizedText.blocks) {
-      for (TextLine line in block.lines) {
-        scannedText += line.text + '\n';
+    String detectedLang = 'en-IN'; // default English
+
+    RecognizedText latin = await latinRecognizer.processImage(inputImage);
+    RecognizedText hindi = await devanagariRecognizer.processImage(inputImage);
+
+    if (hindi.text.trim().isNotEmpty) {
+      scannedText = hindi.text;
+      detectedLang = 'hi-IN';
+    } else if (latin.text.trim().isNotEmpty) {
+      scannedText = latin.text;
+
+      // check if text contains Kannada Unicode
+      if (RegExp(r'[\u0C80-\u0CFF]').hasMatch(scannedText)) {
+        detectedLang = 'kn-IN'; // Kannada TTS
+      } else {
+        detectedLang = 'en-IN'; // English TTS
       }
     }
+
+    await latinRecognizer.close();
+    await devanagariRecognizer.close();
 
     setState(() {
       _selectedImage = imageFile;
       _extractedText = scannedText;
     });
 
-    _speakText(scannedText);
+    _speakText(scannedText, detectedLang);
   }
 
-  Future<void> _speakText(String text) async {
+  Future<void> _speakText(String text, String langCode) async {
+    await flutterTts.setLanguage(langCode);
     await flutterTts.speak(text);
     setState(() => _isSpeaking = true);
   }
