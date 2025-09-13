@@ -6,6 +6,8 @@ import 'package:camera/camera.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:req_demo/pages/navigation.dart';
+import 'package:req_demo/pages/scene_description.dart';
+
 class HomePage extends StatelessWidget {
   final List<CameraDescription> cameras;
   HomePage({required this.cameras});
@@ -56,7 +58,7 @@ class HomePage extends StatelessWidget {
       {
         "title": "Scene Description",
         "icon": Icons.image_search,
-        "page": PlaceholderPage(title: "Scene Description")
+        "page": SceneDescriptionScreen()
       },
     ];
 
