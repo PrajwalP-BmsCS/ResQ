@@ -1,8 +1,9 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:http/http.dart' as http;
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:path_provider/path_provider.dart';
 
 class OCRHomePage extends StatefulWidget {
   @override
@@ -14,6 +15,10 @@ class _OCRHomePageState extends State<OCRHomePage> {
   File? _selectedImage;
   final FlutterTts flutterTts = FlutterTts();
   bool _isSpeaking = false;
+  bool _isLoading = false;
+
+  // 🔹 change this to your ESP32-CAM’s IP
+  final String esp32Url = 'http://10.195.49.101/capture?_t=';
 
   @override
   void initState() {
@@ -21,24 +26,49 @@ class _OCRHomePageState extends State<OCRHomePage> {
     flutterTts.setLanguage("en-IN");
     flutterTts.setSpeechRate(0.5);
     flutterTts.setPitch(1.0);
+    _fetchAndProcessImage(); // 👈 directly capture on startup
   }
 
-  Future<void> _pickImage(ImageSource source) async {
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: source);
+  Future<void> _fetchAndProcessImage() async {
+    setState(() {
+      _isLoading = true;
+      _extractedText = '';
+      _selectedImage = null;
+    });
 
-    if (pickedFile == null) return;
+    try {
+      // add timestamp to bust caching
+      final url = Uri.parse('$esp32Url${DateTime.now().millisecondsSinceEpoch}');
+      final response = await http.get(url);
 
-    final imageFile = File(pickedFile.path);
+      if (response.statusCode == 200) {
+        final tempDir = await getTemporaryDirectory();
+        final file = File('${tempDir.path}/esp32_image_${DateTime.now().millisecondsSinceEpoch}.jpg');
+        await file.writeAsBytes(response.bodyBytes);
+
+        setState(() => _selectedImage = file);
+
+        await _processImage(file);
+      } else {
+        throw Exception('ESP32 responded with ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('❌ Error fetching/detecting: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load image from ESP32')),
+      );
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _processImage(File imageFile) async {
     final inputImage = InputImage.fromFile(imageFile);
-
-    // Use Latin & Devanagari only
     final latinRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
-    final devanagariRecognizer =
-        TextRecognizer(script: TextRecognitionScript.devanagiri);
+    final devanagariRecognizer = TextRecognizer(script: TextRecognitionScript.devanagiri);
 
     String scannedText = '';
-    String detectedLang = 'en-IN'; // default English
+    String detectedLang = 'en-IN'; // default
 
     RecognizedText latin = await latinRecognizer.processImage(inputImage);
     RecognizedText hindi = await devanagariRecognizer.processImage(inputImage);
@@ -49,21 +79,18 @@ class _OCRHomePageState extends State<OCRHomePage> {
     } else if (latin.text.trim().isNotEmpty) {
       scannedText = latin.text;
 
-      // check if text contains Kannada Unicode
+      // detect Kannada
       if (RegExp(r'[\u0C80-\u0CFF]').hasMatch(scannedText)) {
-        detectedLang = 'kn-IN'; // Kannada TTS
+        detectedLang = 'kn-IN';
       } else {
-        detectedLang = 'en-IN'; // English TTS
+        detectedLang = 'en-IN';
       }
     }
 
     await latinRecognizer.close();
     await devanagariRecognizer.close();
 
-    setState(() {
-      _selectedImage = imageFile;
-      _extractedText = scannedText;
-    });
+    setState(() => _extractedText = scannedText);
 
     _speakText(scannedText, detectedLang);
   }
@@ -93,61 +120,64 @@ class _OCRHomePageState extends State<OCRHomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('OCR & TTS Smart Reader')),
+      appBar: AppBar(title: const Text('OCR & TTS Smart Reader')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                ElevatedButton.icon(
-                  onPressed: () => _pickImage(ImageSource.camera),
-                  icon: Icon(Icons.camera),
-                  label: Text('Camera'),
-                ),
-                SizedBox(width: 20),
-                ElevatedButton.icon(
-                  onPressed: () => _pickImage(ImageSource.gallery),
-                  icon: Icon(Icons.photo_library),
-                  label: Text('Gallery'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            if (_selectedImage != null)
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Image.file(_selectedImage!, height: 250),
-                  const SizedBox(height: 20),
-                  Text(
-                    _extractedText,
-                    textAlign: TextAlign.left,
-                    style: TextStyle(fontSize: 16),
-                  ),
-                ],
-              ),
-            const SizedBox(height: 20),
-            if (_extractedText.isNotEmpty)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  ElevatedButton.icon(
-                    onPressed: _isSpeaking ? _pauseSpeech : null,
-                    icon: Icon(Icons.pause),
-                    label: Text('Pause'),
-                  ),
-                  const SizedBox(width: 20),
-                  ElevatedButton.icon(
-                    onPressed: !_isSpeaking ? _resumeSpeech : null,
-                    icon: Icon(Icons.play_arrow),
-                    label: Text('Resume'),
-                  ),
-                ],
-              ),
-          ],
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (_isLoading)
+                const Column(
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 20),
+                    Text('Capturing image from ESP32...'),
+                  ],
+                )
+              else if (_selectedImage != null)
+                Column(
+                  children: [
+                    Image.file(_selectedImage!, height: 250),
+                    const SizedBox(height: 20),
+                    Text(
+                      _extractedText.isEmpty
+                          ? 'Processing text...'
+                          : _extractedText,
+                      textAlign: TextAlign.left,
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        ElevatedButton.icon(
+                          onPressed: _fetchAndProcessImage,
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('Retake'),
+                        ),
+                        const SizedBox(width: 20),
+                        if (_extractedText.isNotEmpty)
+                          ElevatedButton.icon(
+                            onPressed: _isSpeaking ? _pauseSpeech : null,
+                            icon: const Icon(Icons.pause),
+                            label: const Text('Pause'),
+                          ),
+                        const SizedBox(width: 20),
+                        if (_extractedText.isNotEmpty)
+                          ElevatedButton.icon(
+                            onPressed: !_isSpeaking ? _resumeSpeech : null,
+                            icon: const Icon(Icons.play_arrow),
+                            label: const Text('Resume'),
+                          ),
+                      ],
+                    ),
+                  ],
+                )
+              else
+                const Text('Waiting for image...'),
+            ],
+          ),
         ),
       ),
     );

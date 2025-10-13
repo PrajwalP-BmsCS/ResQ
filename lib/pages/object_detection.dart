@@ -1,8 +1,10 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
 
 class ObjectDetectionScreen extends StatefulWidget {
   @override
@@ -10,11 +12,14 @@ class ObjectDetectionScreen extends StatefulWidget {
 }
 
 class _ObjectDetectionScreenState extends State<ObjectDetectionScreen> {
-  File? _selectedImage;
+  File? _capturedImage;
   List<dynamic>? _detections;
   final FlutterTts flutterTts = FlutterTts();
   static const platform = MethodChannel('onnx_channel');
   bool _isDetecting = false;
+
+  // ⚡ your ESP32 CAM endpoint
+  final String esp32Url = 'http://10.195.49.101/capture';
 
   @override
   void initState() {
@@ -22,23 +27,37 @@ class _ObjectDetectionScreenState extends State<ObjectDetectionScreen> {
     flutterTts.setLanguage("en-IN");
     flutterTts.setSpeechRate(0.5);
     flutterTts.setPitch(1.0);
+    _fetchAndDetect();
   }
 
-  Future<void> _pickImage(ImageSource source) async {
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: source);
-
-    if (pickedFile == null) return;
-
-    final imageFile = File(pickedFile.path);
-
+  Future<void> _fetchAndDetect() async {
     setState(() {
-      _selectedImage = imageFile;
       _isDetecting = true;
     });
 
     try {
-      // Run YOLO ONNX inference
+      // add timestamp param to force ESP32 refresh
+      final String url =
+          '$esp32Url?cb=${DateTime.now().millisecondsSinceEpoch}';
+      final response = await http.get(Uri.parse(url));
+      print("📸 Fetching from $url");
+
+      if (response.statusCode != 200) {
+        throw Exception('Failed to load image from ESP32');
+      }
+
+      // save image with unique filename
+      final Directory tempDir = await getTemporaryDirectory();
+      final String filePath =
+          '${tempDir.path}/capture_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final File imageFile = File(filePath);
+      await imageFile.writeAsBytes(response.bodyBytes);
+
+      setState(() {
+        _capturedImage = imageFile;
+      });
+
+      // 🚀 Run YOLO ONNX inference
       final List<dynamic> result =
           await platform.invokeMethod('runYOLO', {'path': imageFile.path});
 
@@ -47,7 +66,7 @@ class _ObjectDetectionScreenState extends State<ObjectDetectionScreen> {
         _isDetecting = false;
       });
 
-      // Speak results
+      // 🗣️ Speak results
       if (result.isNotEmpty) {
         String detectedObjects = result.join(", ");
         await flutterTts.speak("I see $detectedObjects");
@@ -55,8 +74,8 @@ class _ObjectDetectionScreenState extends State<ObjectDetectionScreen> {
         await flutterTts.speak("No objects detected");
       }
     } catch (e) {
+      print("❌ Error fetching/detecting: $e");
       setState(() => _isDetecting = false);
-      print("❌ Error: $e");
       await flutterTts.speak("Error detecting objects");
     }
   }
@@ -71,49 +90,48 @@ class _ObjectDetectionScreenState extends State<ObjectDetectionScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text("Object Detection")),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Buttons to choose image
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                ElevatedButton.icon(
-                  onPressed: () => _pickImage(ImageSource.camera),
-                  icon: Icon(Icons.camera),
-                  label: Text('Camera'),
-                ),
-                SizedBox(width: 20),
-                ElevatedButton.icon(
-                  onPressed: () => _pickImage(ImageSource.gallery),
-                  icon: Icon(Icons.photo_library),
-                  label: Text('Gallery'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-
-            // Selected Image
-            if (_selectedImage != null)
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Image.file(_selectedImage!, height: 250),
-                  const SizedBox(height: 20),
-
-                  // Detection results
-                  if (_isDetecting)
-                    Center(child: CircularProgressIndicator())
-                  else if (_detections != null)
-                    Text(
-                      "Detected Objects: ${_detections!.join(", ")}",
-                      style: TextStyle(fontSize: 16),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: _isDetecting
+              ? Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 20),
+                    Text("Capturing and detecting..."),
+                  ],
+                )
+              : _capturedImage == null
+                  ? Text("No image captured yet")
+                  : Column(
+                      children: [
+                        FutureBuilder<Uint8List>(
+                          future: _capturedImage?.readAsBytes(),
+                          builder: (context, snapshot) {
+                            if (!snapshot.hasData)
+                              return CircularProgressIndicator();
+                            return Image.memory(
+                              snapshot.data!,
+                              height: 250,
+                              gaplessPlayback: true, // prevents old frame flash
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 20),
+                        if (_detections != null)
+                          Text(
+                            "Detected Objects: ${_detections!.join(", ")}",
+                            style: TextStyle(fontSize: 16),
+                          ),
+                        const SizedBox(height: 20),
+                        ElevatedButton.icon(
+                          onPressed: _fetchAndDetect,
+                          icon: Icon(Icons.refresh),
+                          label: Text("Capture Again"),
+                        ),
+                      ],
                     ),
-                ],
-              ),
-          ],
         ),
       ),
     );
