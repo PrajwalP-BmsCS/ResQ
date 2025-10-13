@@ -17,7 +17,7 @@ class _SceneDescriptionScreenState extends State<SceneDescriptionScreen> {
   bool _isProcessing = false;
 
   // 🔌 Change this to your server’s IP / domain
-  final String serverUrl = "http://192.168.31.45:8000/caption";
+  final String serverUrl = "http://10.181.21.104:8000/caption";
 
   @override
   void initState() {
