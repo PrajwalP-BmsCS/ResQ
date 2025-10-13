@@ -64,7 +64,7 @@ class MainActivity : FlutterActivity() {
             }
     }
 
-    private fun runInference(imagePath: String): String {
+    private fun runInference(imagePath: String): List<String> {
         Log.d("ONNX", "Running inference on: $imagePath")
 
         // Load and resize image
@@ -78,29 +78,20 @@ class MainActivity : FlutterActivity() {
         // Run inference
         val output = ortSession.run(mapOf("images" to inputTensor))
         val outputTensor = output[0].value as Array<Array<FloatArray>>
-        Log.d("ONNX", "Model output shape: ${outputTensor[0].size}")
 
-        // Postprocess detections (with NMS)
+        // Postprocess detections (no NMS drawing)
         val detections = postProcess(outputTensor[0], resizedBitmap.width, resizedBitmap.height)
 
-        // Draw results on image
-        val boxedImage = drawDetections(resizedBitmap, detections)
+        // Return list of detected object names
+        val detectedClasses = detections.map {
+            COCO_CLASSES.getOrElse(it.classId) { "Unknown" }
+        }.distinct()
 
-        // Save output to a new unique cache file (avoid overwriting)
-        val uniqueFileName = "boxed_result_${UUID.randomUUID()}.png"
-        val outFile = File(cacheDir, uniqueFileName)
-        outFile.outputStream().use {
-            boxedImage.compress(Bitmap.CompressFormat.PNG, 100, it)
-        }
+        Log.i("ONNX", "Detected Objects: $detectedClasses")
 
-        if (detections.isEmpty()) {
-            Log.w("ONNX", "No objects detected!")
-        } else {
-            Log.i("ONNX", "Detected ${detections.size} objects.")
-        }
-
-        return outFile.absolutePath
+        return detectedClasses
     }
+
 
     private fun preprocessImage(bitmap: Bitmap): OnnxTensor {
         val inputWidth = bitmap.width
