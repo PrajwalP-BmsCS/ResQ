@@ -7,7 +7,9 @@ plugins {
 android {
     namespace = "com.example.req_demo"
     compileSdk = 35
-    ndkVersion = flutter.ndkVersion
+    // ndkVersion = flutter.ndkVersion
+    ndkVersion "25.1.8937393"
+
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
@@ -21,7 +23,8 @@ android {
     defaultConfig {
         applicationId = "com.example.req_demo"
         minSdk = 21             // Must be 21 or higher for ONNX
-        targetSdk = flutter.targetSdkVersion
+        targetSdk = 35   // ✅ Explicit integer (not flutter.targetSdkVersion)
+        // targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
