@@ -9,6 +9,10 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import ai.onnxruntime.*
 
+// for long microphone detection
+import android.view.KeyEvent
+import android.os.SystemClock
+
 import java.io.File
 import java.nio.FloatBuffer
 import java.util.UUID
@@ -36,6 +40,12 @@ class MainActivity : FlutterActivity() {
     private lateinit var ortEnv: OrtEnvironment
     private lateinit var ortSession: OrtSession
 
+
+    // media_button
+    private var lastDownTime: Long = 0L
+    private val LONG_PRESS_THRESHOLD = 1000L
+    private val MEDIA_CHANNEL = "com.class_echo/media_button"
+
     override fun configureFlutterEngine(@NonNull flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
@@ -45,24 +55,89 @@ class MainActivity : FlutterActivity() {
         ortSession = ortEnv.createSession(modelBytes)
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
-            .setMethodCallHandler { call, result ->
-                if (call.method == "runYOLO") {
-                    val imagePath = call.argument<String>("path")
-                    if (imagePath != null) {
-                        try {
-                            val processedImagePath = runInference(imagePath)
-                            result.success(processedImagePath)
-                        } catch (e: Exception) {
-                            result.error("ONNX_ERROR", e.localizedMessage, null)
-                        }
-                    } else {
-                        result.error("INVALID_PATH", "Image path is null", null)
+    .setMethodCallHandler { call, result ->
+        when (call.method) {
+            "runYOLO" -> {
+                val imagePath = call.argument<String>("path")
+                if (imagePath != null) {
+                    try {
+                        val processedImagePath = runInference(imagePath)
+                        result.success(processedImagePath)
+                    } catch (e: Exception) {
+                        result.error("ONNX_ERROR", e.localizedMessage, null)
                     }
                 } else {
-                    result.notImplemented()
+                    result.error("INVALID_PATH", "Image path is null", null)
                 }
             }
+
+            "callWithSim" -> {
+                 val phone = call.argument<String>("phone") ?: ""
+            val simSlot = call.argument<Int>("simSlot") ?: 0
+            val handler = SosCallHandler(this)
+            handler.callWithSim(phone, simSlot)
+            result.success("Calling $phone using SIM $simSlot")
+            }
+
+           
+
+            else -> result.notImplemented()
+        }
     }
+
+    }
+
+
+    // media_button
+        override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        // Filter relevant key codes for headset buttons
+        val keyCode = event.keyCode
+        if (keyCode == KeyEvent.KEYCODE_HEADSETHOOK ||
+            keyCode == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE ||
+            keyCode == KeyEvent.KEYCODE_MEDIA_PLAY ||
+            keyCode == KeyEvent.KEYCODE_MEDIA_PAUSE) {
+
+            when (event.action) {
+                KeyEvent.ACTION_DOWN -> {
+                    // Avoid multiple ACTION_DOWN repeats triggering repeatedly
+                    if (event.repeatCount == 0) {
+                        lastDownTime = SystemClock.uptimeMillis()
+                        // optional: send a "down" event to Flutter
+                        sendToFlutter("button_down", null)
+                    }
+                    return true // consume the event
+                }
+                KeyEvent.ACTION_UP -> {
+                    val upTime = SystemClock.uptimeMillis()
+                    val duration = upTime - lastDownTime
+                    if (duration >= LONG_PRESS_THRESHOLD) {
+                        // Long press detected
+                        sendToFlutter("long_press", mapOf("duration" to duration))
+                    } else {
+                        // Short press / single tap detected
+                        sendToFlutter("single_tap", mapOf("duration" to duration))
+                    }
+                    lastDownTime = 0L
+                    return true // consume the event
+                }
+            }
+        }
+
+        return super.dispatchKeyEvent(event)
+    }
+
+
+     private fun sendToFlutter(method: String, args: Any?) {
+        val engine = flutterEngine ?: return
+        val channel = MethodChannel(engine.dartExecutor.binaryMessenger, MEDIA_CHANNEL)
+        channel.invokeMethod(method, args)
+    }
+
+
+
+
+
+   // YOLO 
 
     private fun runInference(imagePath: String): List<String> {
         Log.d("ONNX", "Running inference on: $imagePath")
