@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:req_demo/pages/utils/util.dart';
 
 class OCRHomePage extends StatefulWidget {
   @override
@@ -18,7 +19,7 @@ class _OCRHomePageState extends State<OCRHomePage> {
   bool _isLoading = false;
 
   // 🔹 change this to your ESP32-CAM’s IP
-  final String esp32Url = 'http://10.80.28.211/capture?_t=';
+  final String esp32Url = '$espBaseUrl/capture?_t=';
 
   @override
   void initState() {

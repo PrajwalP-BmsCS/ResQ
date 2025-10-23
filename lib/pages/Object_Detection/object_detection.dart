@@ -5,6 +5,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
+import 'package:req_demo/pages/utils/util.dart';
 
 class ObjectDetectionScreen extends StatefulWidget {
   @override
@@ -19,7 +20,7 @@ class _ObjectDetectionScreenState extends State<ObjectDetectionScreen> {
   bool _isDetecting = false;
 
   // ⚡ your ESP32 CAM endpoint
-  final String esp32Url = 'http://10.80.28.211/capture';
+  final String esp32Url = '$espBaseUrl/capture';
 
   @override
   void initState() {

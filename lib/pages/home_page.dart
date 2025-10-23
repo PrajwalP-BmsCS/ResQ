@@ -217,25 +217,14 @@ class HomePageState extends State<HomePage>
           print("Received intent result from API");
           print(intent_result);
 
-          // if (intent_result.containsKey('intent')) {
-          //   if (intent_result['contact_option'] == null) {
-          //     intent_result['contact_option'] = 0;
-          //   }
-
-          //   navigateToNextScreen(
-          //     intent_result['intent'],
-          //     intent_result['listen_back'] ?? false, // 👈 safe default
-          //     intent_result['contact_option'] ?? 0,
-          //     intent_result['want_to_call'] ?? false, // 👈 safe default
-          //   );
-          // }
-
           // Start
           handleIntentResult(intent_result);
 
           print("Intent Result: $intent_result");
         } catch (e) {
           print("Intent API error: $e");
+          await TTSManager()
+              .speak("Sorry for the inconvenience, Please Try Again!!");
         }
 
         setState(() {
@@ -876,12 +865,13 @@ class HomePageState extends State<HomePage>
         return;
       }
 
+      bool res = await checkConnectivity();
+
       switch (intent) {
         case "connect_glasses":
-          bool res = await checkConnectivity();
           if (res) {
             TTSManager().speak("Connecting to your glasses");
-            await Future.delayed(Duration(seconds: 2), () {
+            await Future.delayed(Duration(seconds: 3), () {
               TTSManager()
                   .speak("Your glasses has been successfully connected");
             });
@@ -889,15 +879,25 @@ class HomePageState extends State<HomePage>
           break;
 
         case "scene_description":
-          TTSManager().speak("Navigating to scene description screen");
+          if (res) {
+            Navigator.push(context, MaterialPageRoute(builder: (context) => SceneDescriptionScreen()));
+            await TTSManager().speak("Starting to scene description now..");
+          }
           break;
 
         case "object_detection":
-          TTSManager().speak("Navigating to object detection screen");
+          if (res) {
+            Navigator.push(context, MaterialPageRoute(builder: (context) => ObjectDetectionScreen()));
+            await TTSManager().speak("Detecting objects");
+          }
+
           break;
 
         case "ocr":
-          TTSManager().speak("Starting text recognition");
+          if (res) {
+            Navigator.push(context, MaterialPageRoute(builder: (context) => OCRHomePage()));
+            await TTSManager().speak("Starting text recognition");
+          }
           break;
 
         case "navigation":
@@ -1603,10 +1603,14 @@ class HomePageState extends State<HomePage>
                       borderRadius: BorderRadius.circular(16),
                     ),
                   ),
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text("Connecting to glasses...")),
-                    );
+                  onPressed: () async {
+                    showStatusSnackBar(
+                        context, "Connecting to the Glasses", "warning");
+                    bool res = await checkConnectivity();
+                    if (res) {
+                      showStatusSnackBar(
+                          context, "Glasses has been connected!", "success");
+                    }
                   },
                   icon:
                       Icon(Icons.wifi_tethering, color: Colors.white, size: 28),
@@ -1702,7 +1706,16 @@ class HomePageState extends State<HomePage>
                     fontWeight: FontWeight.bold,
                   )),
               onPressed: () async {
-                _triggerSOS();
+                if (!_emergencyInProgress) {
+                  bool wasTriggered = await setCounter();
+                  if (wasTriggered) {
+                    debugPrint("✅ Emergency SOS triggered");
+                  } else {
+                    debugPrint("❌ Emergency was cancelled");
+                  }
+                } else {
+                  TTSManager().speak("Emergency already in progress.");
+                }
               },
             ),
           ),

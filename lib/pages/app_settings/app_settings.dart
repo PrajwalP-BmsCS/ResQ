@@ -37,8 +37,5 @@ Future<bool> checkConnectivity() async {
     TTSManager().speak("You are not connected to WiFi. Please connect to WiFi and turn ON hotspot to share hotspot.");
     return false;
   }
-
-  
-  
   return true;
 }

@@ -300,7 +300,7 @@ EXAMPLES:
 15. User: "Share location with option 1"
    Response: {{"intent": "share_location", "listen_back": false, "contact_option": 1, "want_to_call": false, "want_to_share": true, "response": null}}
 
-16. User: "Share location with option number2"
+16. User: "Share location with option number 2"
    Response: {{"intent": "share_location", "listen_back": false, "contact_option": 2, "want_to_call": false, "want_to_share": true, "response": null}}
 
 17. User: "Share location with option 3"

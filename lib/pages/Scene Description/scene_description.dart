@@ -5,6 +5,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
+import 'package:req_demo/pages/utils/util.dart';
 
 class SceneDescriptionScreen extends StatefulWidget {
   @override
@@ -18,8 +19,8 @@ class _SceneDescriptionScreenState extends State<SceneDescriptionScreen> {
   final FlutterTts flutterTts = FlutterTts();
 
   // ⚙️ Change to your ESP32 and server URLs
-  final String esp32Url = "http://10.80.28.211/capture"; // ESP32 camera endpoint
-  final String serverUrl = "http://192.168.73.153:8000/caption"; // your AI caption server
+  final String esp32Url = "$espBaseUrl/capture"; // ESP32 camera endpoint
+  final String serverUrl = "$baseUrl/caption"; // your AI caption server
 
   @override
   void initState() {
