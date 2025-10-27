@@ -1,4 +1,4 @@
-/server/venv
+/server/venv/Lib
 
 # Miscellaneous
 *.class
@@ -43,3 +43,11 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+
+
+
+# venv
+/lib/server/venv/
+/server/venv/
+/server/.env
