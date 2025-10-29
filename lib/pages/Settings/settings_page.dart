@@ -1298,7 +1298,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           style: const TextStyle(fontSize: 16),
                         ),
                     ],
-                  ),
+                  ), message: '',
                 ),
 
 
