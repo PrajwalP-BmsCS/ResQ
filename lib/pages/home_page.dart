@@ -473,15 +473,28 @@ class HomePageState extends State<HomePage>
     print(
         "CALLOP $contactOption | sos: $sos | conname $contactName | finalcon:$contact");
     try {
-      final phoneNumber = contact.phone.replaceAll(RegExp(r'[^\d+]'), '');
+      final contacts = contactManager.contacts;
+      final locationContacts =
+          contacts.where((c) => c.allowCall == true).toList();
+
+      final phoneNumber, final_contact;
+      if (contact is EmergencyContact) {
+        print("Name based contact");
+        phoneNumber = contact.phone.replaceAll(RegExp(r'[^\d+]'), '');
+        final_contact = contact;
+      } else {
+        print("EMERGENCY / option based contact");
+        phoneNumber = locationContacts[contactOption - 1].phone;
+        final_contact = locationContacts[contactOption - 1];
+      }
 
       if (sos) {
         String s = "Calling";
         if (!checkLanguageCondition()) {
           s = "ಕರೆ ಮಾಡಲಾಗುತ್ತಿದೆ";
-          await TTSManager().speak("${contact.name} ಇಗೆ ${s}");
+          await TTSManager().speak("${final_contact.name} ಇಗೆ ${s}");
         } else {
-          await TTSManager().speak("Calling ${contact.name}");
+          await TTSManager().speak("Calling ${final_contact.name}");
         }
       }
 
@@ -510,7 +523,7 @@ class HomePageState extends State<HomePage>
         'simSlot': 0, // or 1 for SIM2
       });
 
-      print("✅ Native call requested to ${contact.name} ($phoneNumber)");
+      print("✅ Native call requested to ${final_contact.name} ($phoneNumber)");
     } catch (e) {
       print("❌ Error making call: $e");
       TTSManager().speak(checkLanguageCondition()
@@ -540,7 +553,7 @@ class HomePageState extends State<HomePage>
   Future<bool> setCounter() async {
     _cancelEmergency = false;
     _emergencyInProgress = true;
-    final seconds = 5;
+    final seconds = 3;
 
     // Speak initial message
     await TTSManager().speak(checkLanguageCondition()
@@ -1214,36 +1227,6 @@ class HomePageState extends State<HomePage>
     }
   }
 
-  // /// Make the actual phone call
-  // Future<void> _makePhoneCall(int contactOption) async {
-  //   try {
-  //     if (contactOption < 1 || contactOption > contactManager.contacts.length) {
-  //       TTSManager().speak("Invalid contact option.");
-  //       return;
-  //     }
-
-  //     final contact = contactManager.contacts[contactOption - 1];
-  //     final phoneNumber = contact.phone.replaceAll(RegExp(r'[^\d+]'), '');
-
-  //     if (phoneNumber.isEmpty) {
-  //       TTSManager().speak("Phone number not available for this contact.");
-  //       return;
-  //     }
-
-  //     final Uri launchUri = Uri(scheme: 'tel', path: phoneNumber);
-
-  //     if (await canLaunchUrl(launchUri)) {
-  //       await launchUrl(launchUri);
-  //       print("✅ Call initiated to ${contact.name}");
-  //     } else {
-  //       TTSManager().speak("Could not make the call. Please try again.");
-  //     }
-  //   } catch (e) {
-  //     print("❌ Error making call: $e");
-  //     TTSManager().speak("An error occurred while making the call.");
-  //   }
-  // }
-
   Future<String?> _getLocationLink() async {
     try {
       ld.Location location = ld.Location();
@@ -1280,7 +1263,21 @@ class HomePageState extends State<HomePage>
       String contactName, final contact) async {
     try {
       // Share via SMS or WhatsApp
-      final phoneNumber = contact.phone.replaceAll(RegExp(r'[^\d+]'), '');
+
+      final contacts = contactManager.contacts;
+      final locationContacts =
+          contacts.where((c) => c.allowLocation == true).toList();
+
+      final phoneNumber, final_contact;
+      if (contact is EmergencyContact) {
+        print("Name based contact");
+        phoneNumber = contact.phone.replaceAll(RegExp(r'[^\d+]'), '');
+        final_contact = contact;
+      } else {
+        print("EMERGENCY / option based contact");
+        phoneNumber = locationContacts[contactOption - 1].phone;
+        final_contact = locationContacts[contactOption - 1];
+      }
 
       if (phoneNumber.isNotEmpty) {
         // You can use url_launcher to open WhatsApp, SMS, or other apps
@@ -1294,20 +1291,20 @@ class HomePageState extends State<HomePage>
 
           if (await canLaunchUrl(whatsappUri)) {
             await launchUrl(whatsappUri);
-            print("✅ Location shared with ${contact.name} via WhatsApp");
+            print("✅ Location shared with ${final_contact.name} via WhatsApp");
 
             if (emergency) {
               await TTSManager().speak(checkLanguageCondition()
-                  ? "Location shared with ${contact.name}. \n Also in next $seconds seconds a phone call will be initiated, please stay in the APP. "
-                  : "ನಿಮ್ಮ ಸ್ಥಳವನ್ನು ${contact.name} ನೊಂದಿಗೆ ಹಂಚಿಕೊಳ್ಳಲಾಗಿದೆ. \n ಮುಂದಿನ $seconds ಸೆಕೆಂಡುಗಳಲ್ಲಿ ಫೋನ್ ಕರೆ ಪ್ರಾರಂಭವಾಗುತ್ತದೆ, ದಯವಿಟ್ಟು APP ನಲ್ಲಿ ಇರಿ.");
+                  ? "Location shared with ${final_contact.name}. \n Also in next $seconds seconds a phone call will be initiated, please stay in the APP. "
+                  : "ನಿಮ್ಮ ಸ್ಥಳವನ್ನು ${final_contact.name} ನೊಂದಿಗೆ ಹಂಚಿಕೊಳ್ಳಲಾಗಿದೆ. \n ಮುಂದಿನ $seconds ಸೆಕೆಂಡುಗಳಲ್ಲಿ ಫೋನ್ ಕರೆ ಪ್ರಾರಂಭವಾಗುತ್ತದೆ, ದಯವಿಟ್ಟು APP ನಲ್ಲಿ ಇರಿ.");
 
               await Future.delayed(Duration(seconds: 10), () {
                 _makePhoneCall(1, true, '', {});
               });
             } else {
               await TTSManager().speak(checkLanguageCondition()
-                  ? "Location shared with ${contact.name}."
-                  : "ನಿಮ್ಮ ಸ್ಥಳವನ್ನು ${contact.name} ನೊಂದಿಗೆ ಹಂಚಿಕೊಳ್ಳಲಾಗಿದೆ.");
+                  ? "Location shared with ${final_contact.name}."
+                  : "ನಿಮ್ಮ ಸ್ಥಳವನ್ನು ${final_contact.name} ನೊಂದಿಗೆ ಹಂಚಿಕೊಳ್ಳಲಾಗಿದೆ.");
             }
           } else {
             // Fallback: SMS
@@ -1315,10 +1312,10 @@ class HomePageState extends State<HomePage>
                 "sms:$phoneNumber?body=${Uri.encodeComponent(shareMessage)}");
             if (await canLaunchUrl(smsUri)) {
               await launchUrl(smsUri);
-              print("✅ Location shared with ${contact.name} via SMS");
+              print("✅ Location shared with ${final_contact.name} via SMS");
               await TTSManager().speak(checkLanguageCondition()
-                  ? "Location shared with ${contact.name}"
-                  : "ನಿಮ್ಮ ಸ್ಥಳವನ್ನು ${contact.name} ನೊಂದಿಗೆ ಹಂಚಿಕೊಳ್ಳಲಾಗಿದೆ.");
+                  ? "Location shared with ${final_contact.name}"
+                  : "ನಿಮ್ಮ ಸ್ಥಳವನ್ನು ${final_contact.name} ನೊಂದಿಗೆ ಹಂಚಿಕೊಳ್ಳಲಾಗಿದೆ.");
             }
           }
         }
@@ -1557,6 +1554,7 @@ class HomePageState extends State<HomePage>
             icon: Icon(Icons.help_outline),
             onPressed: () async {
               // Reset and show onboarding again
+
               final prefs = await SharedPreferences.getInstance();
               await prefs.setBool('onboarding_completed', false);
               _checkAndShowOnboarding();

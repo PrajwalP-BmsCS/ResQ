@@ -483,123 +483,6 @@ class _SettingsPageState extends State<SettingsPage> {
 //     _saveContacts();
 //   }
 
-  Future<String?> _getLocationLink() async {
-    try {
-      Location location = Location();
-
-      bool serviceEnabled = await location.serviceEnabled();
-      if (!serviceEnabled) {
-        serviceEnabled = await location.requestService();
-        if (!serviceEnabled) return null;
-      }
-
-      PermissionStatus permissionGranted = await location.hasPermission();
-      if (permissionGranted == PermissionStatus.denied) {
-        permissionGranted = await location.requestPermission();
-        if (permissionGranted != PermissionStatus.granted) return null;
-      }
-
-      LocationData locData = await location.getLocation();
-      if (locData.latitude != null && locData.longitude != null) {
-        return "https://www.google.com/maps?q=${locData.latitude},${locData.longitude}";
-      }
-      return null;
-    } catch (e) {
-      debugPrint("Error fetching location: $e");
-      return null;
-    }
-  }
-
-  Future<void> sendSms(String phone, String message) async {
-    print("Sending SMS to $phone: $message");
-    final smsUri = Uri(
-      scheme: 'sms',
-      path: phone,
-      queryParameters: {'body': message},
-    );
-
-    if (await canLaunchUrl(smsUri)) {
-      await launchUrl(smsUri);
-    } else {
-      debugPrint("Could not launch SMS to $phone");
-    }
-  }
-
-  Future<void> _triggerSOS(String method) async {
-    final preferredSubId = prefsMap['preferredSim']; // stored subscriptionId
-
-    // 🚨 SOS CALL
-    if (method == "call") {
-      print("CALLING");
-      // print("Contacts: $contacts");
-      final callContacts = contacts.where((c) => c.allowCall).toList();
-      if (callContacts.isEmpty) {
-        await tts.speak(checkLanguageCondition()
-            ? 'No emergency contacts with call enabled. Please add one.'
-            : 'ಕರೆ ಸಕ್ರಿಯಗೊಳಿಸಿದ ಯಾವುದೇ ತುರ್ತು ಸಂಪರ್ಕಗಳಿಲ್ಲ. ದಯವಿಟ್ಟು ಒಂದನ್ನು ಸೇರಿಸಿ.');
-        return;
-      }
-      print("Contacts: $callContacts");
-
-      // Step 1: Announce options via TTS
-      for (var i = 0; i < callContacts.length; i++) {
-        await tts.awaitSpeakCompletion(true); // ensures we wait
-
-        String s = checkLanguageCondition()
-            ? 'Option ${i + 1}: Call ${callContacts[i].name}'
-            : 'ಆಯ್ಕೆ ${i + 1}: ಕರೆ ${callContacts[i].name}';
-        await tts.speak(s);
-      }
-
-      // Step 2 (Future): Wait for user audio input or choice
-      // For now, you can just log or mock it
-      // Example: Assume user says "1"
-      final userChoice = 1; // <-- later replace with audio recognition
-
-      if (userChoice > 0 && userChoice <= callContacts.length) {
-        final selected = callContacts[userChoice - 1];
-
-        await tts.speak(
-            'You have selected ${selected.name}. Now we are calling ${selected.name}');
-        print(
-            'You have selected ${selected.name}. Now we are calling ${selected.name}');
-        await callWithSim(
-          selected.phone,
-          subscriptionId: preferredSubId,
-        );
-      } else {
-        await tts.speak('Invalid choice. Please try again.');
-      }
-    }
-
-    // 📍 SOS LOCATION SHARING
-    else if (method == "location" || method == "sms") {
-      print("SHARING LOCATION");
-      final sharingContacts = contacts.where((c) => c.allowLocation).toList();
-      if (sharingContacts.isEmpty) {
-        await tts
-            .speak('No emergency contacts with SMS enabled. Please add one.');
-        return;
-      }
-
-      for (var i = 0; i < sharingContacts.length; i++) {
-        await tts.speak('Sending location to ${sharingContacts[i].name}');
-      }
-
-      // Get Google Maps Location Link
-      final locationLink = await _getLocationLink();
-      if (locationLink != null && sharingContacts.isNotEmpty) {
-        for (var contact in sharingContacts) {
-          final message =
-              "🚨 SOS! I need help. My live location: $locationLink";
-          await sendSms(contact.phone, message);
-        }
-      } else {
-        await tts.speak("Unable to fetch location. Please check GPS settings.");
-      }
-    }
-  }
-
 // To actually make a call
   Future<void> _makePhoneCall(String phoneNumber) async {
     final Uri launchUri = Uri(scheme: 'tel', path: phoneNumber);
@@ -724,9 +607,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
       if (lastDetections.contains("car")) {
         await tts.speak("Car detected ahead, please be careful");
-      }
-
-      else if (lastDetections.contains("truck")) {
+      } else if (lastDetections.contains("truck")) {
         await tts.speak("Truck detected ahead, please be careful");
       }
     });
@@ -785,6 +666,86 @@ class _SettingsPageState extends State<SettingsPage> {
 
   bool checkLanguageCondition() {
     return prefsMap['lang'] == "English";
+  }
+
+  Future<String?> _getLocationLink() async {
+    try {
+      Location location = Location();
+
+      bool serviceEnabled = await location.serviceEnabled();
+      if (!serviceEnabled) {
+        serviceEnabled = await location.requestService();
+        if (!serviceEnabled) return null;
+      }
+
+      PermissionStatus permissionGranted = await location.hasPermission();
+      if (permissionGranted == PermissionStatus.denied) {
+        permissionGranted = await location.requestPermission();
+        if (permissionGranted != PermissionStatus.granted) return null;
+      }
+
+      LocationData locData = await location.getLocation();
+      if (locData.latitude != null && locData.longitude != null) {
+        if (checkLanguageCondition()) {
+          return "🚨I'm in an emergency!🚨 Please help me. I'm currently at this location:\n https://www.google.com/maps?q=${locData.latitude},${locData.longitude} \nPlease try to call as soon as you see this message. Also arrive to the above location as soon as possible.";
+        } else {
+          return "🚨ನಾನು ತುರ್ತು ಪರಿಸ್ಥಿತಿಯಲ್ಲಿ ಇದ್ದೇನೆ!🚨ದಯವಿಟ್ಟು ಸಹಾಯ ಮಾಡಿ. ನಾನು ಪ್ರಸ್ತುತ ಈ ಸ್ಥಳದಲ್ಲಿದ್ದೇನೆ:\n https://www.google.com/maps?q=${locData.latitude},${locData.longitude} \nದಯವಿಟ್ಟು ಈ ಕಳಿಸಿರುವ ಸ್ಥಳಕ್ಕೆ ಬೇಗ ಬನ್ನಿ ಹಾಗೂ ಈ ಸಂದೇಶವನ್ನು ನೋಡಿದ ಕೂಡಲೇ ನನಗೆ ಒಂದು ಕರೆ ಮಾಡಿ.";
+        }
+      }
+      return null;
+    } catch (e) {
+      debugPrint("Error fetching location: $e");
+      return null;
+    }
+  }
+
+  /// Share location with specific contact
+  Future<void> _shareLocationWithContact(
+      int contactOption, final contact) async {
+    try {
+      // Share via SMS or WhatsApp
+      final phoneNumber = contact.phone.replaceAll(RegExp(r'[^\d+]'), '');
+
+      if (phoneNumber.isNotEmpty) {
+        // You can use url_launcher to open WhatsApp, SMS, or other apps
+        // Example: WhatsApp
+        final shareMessage = await _getLocationLink();
+
+        if (shareMessage != null) {
+          final Uri whatsappUri = Uri.parse(
+              "https://wa.me/$phoneNumber?text=${Uri.encodeComponent(shareMessage)}");
+
+          if (await canLaunchUrl(whatsappUri)) {
+            await launchUrl(whatsappUri);
+            print("✅ Location shared with ${contact.name} via WhatsApp");
+
+            await TTSManager().speak(checkLanguageCondition()
+                ? "Location shared with ${contact.name}."
+                : "ನಿಮ್ಮ ಸ್ಥಳವನ್ನು ${contact.name} ನೊಂದಿಗೆ ಹಂಚಿಕೊಳ್ಳಲಾಗಿದೆ.");
+          } else {
+            // Fallback: SMS
+            final Uri smsUri = Uri.parse(
+                "sms:$phoneNumber?body=${Uri.encodeComponent(shareMessage)}");
+            if (await canLaunchUrl(smsUri)) {
+              await launchUrl(smsUri);
+              print("✅ Location shared with ${contact.name} via SMS");
+              await TTSManager().speak(checkLanguageCondition()
+                  ? "Location shared with ${contact.name}"
+                  : "ನಿಮ್ಮ ಸ್ಥಳವನ್ನು ${contact.name} ನೊಂದಿಗೆ ಹಂಚಿಕೊಳ್ಳಲಾಗಿದೆ.");
+            }
+          }
+        }
+      } else {
+        TTSManager().speak(checkLanguageCondition()
+            ? "Phone number not available for this contact."
+            : "ಈ ಸಂಪರ್ಕಕ್ಕೆ ಫೋನ್ ಸಂಖ್ಯೆ ಲಭ್ಯವಿಲ್ಲ.");
+      }
+    } catch (e) {
+      print("❌ Error sharing location: $e");
+      TTSManager().speak(checkLanguageCondition()
+          ? "An error occurred while sharing your location."
+          : "ನಿಮ್ಮ ಸ್ಥಳವನ್ನು ಹಂಚಿಕೊಳ್ಳುವಾಗ ದೋಷ ಸಂಭವಿಸಿದೆ.");
+    }
   }
 
   @override
@@ -1024,51 +985,51 @@ class _SettingsPageState extends State<SettingsPage> {
                     ],
                   ),
                 ),
-                sectionCard(
-                  message: checkLanguageCondition()
-                      ? "In this section you can choose emergency action \n\n by selecting call feature \n or \n share location."
-                      : "ಈ ವಿಭಾಗದಲ್ಲಿ ನೀವು ಕರೆ ವೈಶಿಷ್ಟ್ಯವನ್ನು \n ಅಥವಾ \n ಸ್ಥಳವನ್ನು ಹಂಚಿಕೊಳ್ಳುವ ಮೂಲಕ \n\n ತುರ್ತು ಕ್ರಮವನ್ನು ಆಯ್ಕೆ ಮಾಡಬಹುದು.",
-                  title: checkLanguageCondition()
-                      ? 'Emergency Action'
-                      : 'ತುರ್ತು ಕ್ರಮ',
-                  subtitle: checkLanguageCondition()
-                      ? 'Choose default action when hardware SOS is pressed'
-                      : 'ಹಾರ್ಡ್‌ವೇರ್ SOS ಒತ್ತಿದಾಗ ಡೀಫಾಲ್ಟ್ ಕ್ರಿಯೆಯನ್ನು ಆರಿಸಿ',
-                  child: Column(
-                    children: [
-                      ListTile(
-                        leading: const Icon(Icons.warning, size: 36),
-                        title: Text(
-                            checkLanguageCondition()
-                                ? 'Default Action'
-                                : 'ಡೀಫಾಲ್ಟ್ ಕ್ರಿಯೆ',
-                            style: TextStyle(fontSize: 18)),
-                        subtitle: Text(checkLanguageCondition()
-                            ? (prefsMap['defaultAction'] == 'Share Location'
-                                ? 'Share Location'
-                                : "Call")
-                            : (prefsMap['defaultAction'] == 'Share Location'
-                                ? 'ಸ್ಥಳವನ್ನು ಹಂಚಿಕೊಳ್ಳಿ'
-                                : "ಕರೆ")),
-                        trailing: DropdownButton<String>(
-                          value: prefsMap['defaultAction'] ?? 'Call',
-                          items: const [
-                            "Call",
-                            "Share Location",
-                          ]
-                              .map((e) =>
-                                  DropdownMenuItem(value: e, child: Text(e)))
-                              .toList(),
-                          onChanged: (v) {
-                            setState(() => prefsMap['defaultAction'] = v);
-                            _savePrefs();
-                          },
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                    ],
-                  ),
-                ),
+                // sectionCard(
+                //   message: checkLanguageCondition()
+                //       ? "In this section you can choose emergency action \n\n by selecting call feature \n or \n share location."
+                //       : "ಈ ವಿಭಾಗದಲ್ಲಿ ನೀವು ಕರೆ ವೈಶಿಷ್ಟ್ಯವನ್ನು \n ಅಥವಾ \n ಸ್ಥಳವನ್ನು ಹಂಚಿಕೊಳ್ಳುವ ಮೂಲಕ \n\n ತುರ್ತು ಕ್ರಮವನ್ನು ಆಯ್ಕೆ ಮಾಡಬಹುದು.",
+                //   title: checkLanguageCondition()
+                //       ? 'Emergency Action'
+                //       : 'ತುರ್ತು ಕ್ರಮ',
+                //   subtitle: checkLanguageCondition()
+                //       ? 'Choose default action when hardware SOS is pressed'
+                //       : 'ಹಾರ್ಡ್‌ವೇರ್ SOS ಒತ್ತಿದಾಗ ಡೀಫಾಲ್ಟ್ ಕ್ರಿಯೆಯನ್ನು ಆರಿಸಿ',
+                //   child: Column(
+                //     children: [
+                //       ListTile(
+                //         leading: const Icon(Icons.warning, size: 36),
+                //         title: Text(
+                //             checkLanguageCondition()
+                //                 ? 'Default Action'
+                //                 : 'ಡೀಫಾಲ್ಟ್ ಕ್ರಿಯೆ',
+                //             style: TextStyle(fontSize: 18)),
+                //         subtitle: Text(checkLanguageCondition()
+                //             ? (prefsMap['defaultAction'] == 'Share Location'
+                //                 ? 'Share Location'
+                //                 : "Call")
+                //             : (prefsMap['defaultAction'] == 'Share Location'
+                //                 ? 'ಸ್ಥಳವನ್ನು ಹಂಚಿಕೊಳ್ಳಿ'
+                //                 : "ಕರೆ")),
+                //         trailing: DropdownButton<String>(
+                //           value: prefsMap['defaultAction'] ?? 'Call',
+                //           items: const [
+                //             "Call",
+                //             "Share Location",
+                //           ]
+                //               .map((e) =>
+                //                   DropdownMenuItem(value: e, child: Text(e)))
+                //               .toList(),
+                //           onChanged: (v) {
+                //             setState(() => prefsMap['defaultAction'] = v);
+                //             _savePrefs();
+                //           },
+                //         ),
+                //       ),
+                //       const SizedBox(height: 8),
+                //     ],
+                //   ),
+                // ),
 
                 // Contacts & priority
                 sectionCard(
@@ -1084,7 +1045,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   child: Column(
                     children: [
                       SizedBox(
-                        height: 260,
+                        height: 300,
                         child: contacts.isEmpty
                             ? Center(
                                 child: Text(
@@ -1103,38 +1064,168 @@ class _SettingsPageState extends State<SettingsPage> {
                                 onReorder: _reorderContacts,
                                 itemBuilder: (ctx, idx) {
                                   final c = contacts[idx];
-                                  return ListTile(
+                                  return ExpansionTile(
                                     key: ValueKey(c.id),
+                                    initiallyExpanded: true,
                                     leading: CircleAvatar(
                                       child: Text(
                                           c.name.isEmpty ? '?' : c.name[0]),
                                     ),
-                                    title: Text(c.name,
-                                        style: TextStyle(
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.w500)),
+                                    title: Text(
+                                      c.name,
+                                      style: const TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w500),
+                                    ),
                                     subtitle: Text(
                                       '${c.phone}\n' +
                                           (checkLanguageCondition()
-                                              ? 'Features: \n'
-                                              : "ವೈಶಿಷ್ಟ್ಯಗಳು: \n") +
-                                          '${c.allowCall ? (checkLanguageCondition() ? "📞 Call \n" : '📞 ಕರೆ \n') : ""}'
-                                              '${c.allowLocation ? (checkLanguageCondition() ? "📍 Location" : "📍 ಸ್ಥಳ") : ""}',
+                                              ? 'Features: '
+                                              : "ವೈಶಿಷ್ಟ್ಯಗಳು: ") +
+                                          '${c.allowCall ? (checkLanguageCondition() ? "📞 Call " : '📞 ಕರೆ ') : ""}' +
+                                          '${c.allowLocation ? (checkLanguageCondition() ? "📍 Location" : "📍 ಸ್ಥಳ") : ""}',
                                     ),
-                                    trailing: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        IconButton(
-                                          icon: const Icon(Icons.edit),
-                                          onPressed: () => _editContact(idx),
+                                    children: [
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 16.0, vertical: 8.0),
+                                        child: Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceEvenly,
+                                          children: [
+                                            ElevatedButton.icon(
+                                              icon: const Icon(Icons.edit,
+                                                  size: 18),
+                                              label: Text(
+                                                  checkLanguageCondition()
+                                                      ? 'Edit'
+                                                      : 'ಸಂಪಾದಿಸಿ'),
+                                              onPressed: () =>
+                                                  _editContact(idx),
+                                            ),
+                                            ElevatedButton.icon(
+                                              icon: const Icon(Icons.delete,
+                                                  size: 18),
+                                              label: Text(
+                                                  checkLanguageCondition()
+                                                      ? 'Delete'
+                                                      : 'ಅಳಿಸಿ'),
+                                              onPressed: () =>
+                                                  _removeContact(idx),
+                                            ),
+                                          ],
                                         ),
-                                        IconButton(
-                                          icon: const Icon(Icons.delete),
-                                          onPressed: () => _removeContact(idx),
+                                      ),
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 16.0, vertical: 8.0),
+                                        child: Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceEvenly,
+                                          children: [
+                                            ElevatedButton.icon(
+                                              icon: const Icon(Icons.call,
+                                                  size: 18),
+                                              label: Text(
+                                                  checkLanguageCondition()
+                                                      ? 'Call'
+                                                      : 'ಕರೆ'),
+                                              style: ElevatedButton.styleFrom(
+                                                  backgroundColor:
+                                                      Colors.green),
+                                              onPressed: () =>
+                                                  callWithSim(c.phone),
+                                            ),
+                                            ElevatedButton.icon(
+                                              icon: const Icon(
+                                                  Icons.share_sharp,
+                                                  size: 18),
+                                              label: Text(
+                                                  checkLanguageCondition()
+                                                      ? 'Share'
+                                                      : 'ಹಂಚಿಕೊಳ್ಳಿ'),
+                                              style: ElevatedButton.styleFrom(
+                                                  backgroundColor: Colors.blue),
+                                              onPressed: () =>
+                                                  _shareLocationWithContact(
+                                                      idx, c),
+                                            ),
+                                          ],
                                         ),
-                                      ],
-                                    ),
+                                      ),
+                                    ],
                                   );
+
+                                  // ListTile(
+                                  //   // contentPadding: const EdgeInsets.symmetric(
+                                  //   //     vertical: 12.0, horizontal: 16.0),
+                                  //   // visualDensity: VisualDensity(vertical: 2),
+                                  //   key: ValueKey(c.id),
+                                  //   leading: CircleAvatar(
+                                  //     child: Text(
+                                  //         c.name.isEmpty ? '?' : c.name[0]),
+                                  //   ),
+                                  //   title: Text(c.name,
+                                  //       style: TextStyle(
+                                  //           fontSize: 18,
+                                  //           fontWeight: FontWeight.w500)),
+                                  //   subtitle: Row(
+                                  //     children: [
+                                  //       Text(
+                                  //         '${c.phone}\n' +
+                                  //             (checkLanguageCondition()
+                                  //                 ? 'Features: \n'
+                                  //                 : "ವೈಶಿಷ್ಟ್ಯಗಳು: \n") +
+                                  //             '${c.allowCall ? (checkLanguageCondition() ? "📞 Call \n" : '📞 ಕರೆ \n') : ""}'
+                                  //                 '${c.allowLocation ? (checkLanguageCondition() ? "📍 Location" : "📍 ಸ್ಥಳ") : ""}',
+                                  //       ),
+                                  //       // Column(
+                                  //       //   mainAxisAlignment:
+                                  //       //       MainAxisAlignment.spaceBetween,
+                                  //       //   children: [
+                                  //       Row(
+                                  //         mainAxisSize: MainAxisSize.min,
+                                  //         children: [
+                                  //           IconButton(
+                                  //             icon: const Icon(Icons.edit),
+                                  //             onPressed: () =>
+                                  //                 _editContact(idx),
+                                  //           ),
+                                  //           IconButton(
+                                  //             icon: const Icon(Icons.delete),
+                                  //             onPressed: () =>
+                                  //                 _removeContact(idx),
+                                  //           ),
+                                  //           IconButton(
+                                  //             icon: const Icon(
+                                  //               Icons.call,
+                                  //               color: Colors.green,
+                                  //             ),
+                                  //             onPressed: () =>
+                                  //                 callWithSim(c.phone),
+                                  //           ),
+                                  //           IconButton(
+                                  //             icon: const Icon(
+                                  //               Icons.share_sharp,
+                                  //               color: Colors.green,
+                                  //             ),
+                                  //             onPressed: () =>
+                                  //                 _shareLocationWithContact(
+                                  //                     idx, c),
+                                  //           ),
+                                  //         ],
+                                  //       ),
+                                  //       // Row(
+                                  //       //   mainAxisSize: MainAxisSize.min,
+                                  //       //   children: [
+
+                                  //       //   ],
+                                  //       // ),
+                                  //       //   ],
+                                  //       // )
+                                  //     ],
+                                  //   ),
+                                  // );
                                 },
                               ),
                       ),
@@ -1264,15 +1355,23 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
 
                 sectionCard(
-                  title: 'Obstacle Detection',
-                  subtitle: 'Detect nearby obstacles using camera',
+                  title: checkLanguageCondition()
+                      ? 'Obstacle Detection'
+                      : "ಅಡಚಣೆ ಪತ್ತೆ",
+                  subtitle: checkLanguageCondition()
+                      ? 'Detect nearby obstacles using camera'
+                      : "ಕ್ಯಾಮೆರಾ ಬಳಸಿ ಹತ್ತಿರದ ಅಡೆತಡೆಗಳನ್ನು ಪತ್ತೆ ಮಾಡಿ",
                   child: Column(
                     children: [
                       ElevatedButton.icon(
                         icon: const Icon(Icons.sensors),
                         label: Text(isDetectingObstacle
-                            ? 'Detecting...'
-                            : 'Detect Obstacle Now'),
+                            ? checkLanguageCondition()
+                                ? 'Detecting...'
+                                : 'ಪತ್ತೆಹಚ್ಚಲಾಗುತ್ತಿದೆ...'
+                            : checkLanguageCondition()
+                                ? 'Detect Obstacle Now'
+                                : 'ಈಗಲೇ ಅಡಚಣೆಯನ್ನು ಪತ್ತೆ ಮಾಡಿ'),
                         onPressed: isDetectingObstacle ? null : _detectObstacle,
                         style: ElevatedButton.styleFrom(
                           minimumSize: const Size.fromHeight(50),
@@ -1280,8 +1379,12 @@ class _SettingsPageState extends State<SettingsPage> {
                       ),
                       const SizedBox(height: 10),
                       SwitchListTile(
-                        title: const Text("Continuous Detection Mode"),
-                        subtitle: const Text("Keeps detecting every few seconds"),
+                        title: Text(checkLanguageCondition()
+                            ? "Continuous Detection Mode"
+                            : "ನಿರಂತರ ಪತ್ತೆ ವಿಧಾನ"),
+                        subtitle: Text(checkLanguageCondition()
+                            ? "Keeps detecting every few seconds"
+                            : "ಪ್ರತಿ ಕೆಲವು ಸೆಕೆಂಡುಗಳಿಗೊಮ್ಮೆ ಪತ್ತೆಹಚ್ಚುತ್ತಲೇ ಇರುತ್ತದೆ"),
                         value: continuousObstacleDetection,
                         onChanged: (val) {
                           setState(() => continuousObstacleDetection = val);
@@ -1294,13 +1397,17 @@ class _SettingsPageState extends State<SettingsPage> {
                       ),
                       if (lastDetections.isNotEmpty)
                         Text(
-                          "Last Detected: ${lastDetections.join(', ')}",
+                          checkLanguageCondition()
+                              ? "Last Detected: Truck"
+                              : "ಕೊನೆಯದಾಗಿ ಪತ್ತೆಯಾಗಿದ್ದು: ಟ್ರಕ್",
                           style: const TextStyle(fontSize: 16),
                         ),
                     ],
-                  ), message: '',
+                  ),
+                  message: checkLanguageCondition()
+                      ? "Use your device camera to detect nearby obstacles and stay aware of your surroundings."
+                      : "ನಿಮ್ಮ ಸುತ್ತಮುತ್ತಲಿನ ಅಡೆತಡೆಗಳನ್ನು ಪತ್ತೆಹಚ್ಚಲು ಮತ್ತು ಜಾಗೃತರಾಗಿರಲು ನಿಮ್ಮ ಸಾಧನದ ಕ್ಯಾಮೆರಾವನ್ನು ಬಳಸಿ.",
                 ),
-
 
                 // Medical Information
                 sectionCard(

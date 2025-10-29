@@ -81,13 +81,13 @@ class _SceneDescriptionScreenState extends State<SceneDescriptionScreen> {
       if (response.statusCode == 200) {
         final respStr = await response.stream.bytesToString();
         final data = jsonDecode(respStr);
-        String? translated_text = "This looks like" + data["caption"] ?? "No description found";
-        
-        if(widget.language == "ಕನ್ನಡ (Kannada)" && translated_text != null){
-           translated_text = await TranslationService.translateWithMyMemory(translated_text!, "en|kn");
-        }
+        String? translated_text =
+            "This looks like" + data["caption"] ?? "No description found";
 
-        
+        if (widget.language == "ಕನ್ನಡ (Kannada)" && translated_text != null) {
+          translated_text = await TranslationService.translateWithMyMemory(
+              translated_text!, "en|kn");
+        }
 
         setState(() {
           _description = translated_text;
@@ -115,7 +115,10 @@ class _SceneDescriptionScreenState extends State<SceneDescriptionScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.language == "English" ? "Scene Description" : "ದೃಶ್ಯ ವಿವರಣೆ")),
+      appBar: AppBar(
+          title: Text(widget.language == "English"
+              ? "Scene Description"
+              : "ದೃಶ್ಯ ವಿವರಣೆ")),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20.0),
         child: Column(
@@ -124,26 +127,33 @@ class _SceneDescriptionScreenState extends State<SceneDescriptionScreen> {
             if (_isProcessing) ...[
               const CircularProgressIndicator(),
               const SizedBox(height: 20),
-               Text(widget.language == "English" ? "Processing, please wait..." : "ಪ್ರಕ್ರಿಯೆಗೊಳಿಸಲಾಗುತ್ತಿದೆ, ದಯವಿಟ್ಟು ನಿರೀಕ್ಷಿಸಿ..."),
+              Text(widget.language == "English"
+                  ? "Processing, please wait..."
+                  : "ಪ್ರಕ್ರಿಯೆಗೊಳಿಸಲಾಗುತ್ತಿದೆ, ದಯವಿಟ್ಟು ನಿರೀಕ್ಷಿಸಿ..."),
             ] else if (_capturedImage != null) ...[
               Image.file(_capturedImage!, height: 250),
               const SizedBox(height: 20),
               if (_description != null)
                 Text(
-                widget.language == "English" ? "Scene: $_description" : "ದೃಶ್ಯ: $_description",
+                  widget.language == "English"
+                      ? "Scene: $_description"
+                      : "ದೃಶ್ಯ: $_description",
                   style: const TextStyle(fontSize: 16),
                 ),
               const SizedBox(height: 20),
               ElevatedButton.icon(
                 onPressed: _captureFromESP32,
                 icon: const Icon(Icons.refresh),
-                label:  Text(widget.language == "English" ? "Retake" : "ಮರುಪಡೆಯಿರಿ"),
+                label: Text(
+                    widget.language == "English" ? "Retake" : "ಮರುಪಡೆಯಿರಿ"),
               ),
             ] else
               ElevatedButton.icon(
                 onPressed: _captureFromESP32,
                 icon: const Icon(Icons.camera_alt),
-                label:  Text(widget.language == "English" ? "Capture Scene" : "ದೃಶ್ಯ ಸೆರೆಹಿಡಿಯುವಿಕೆ"),
+                label: Text(widget.language == "English"
+                    ? "Capture Scene"
+                    : "ದೃಶ್ಯ ಸೆರೆಹಿಡಿಯುವಿಕೆ"),
               ),
           ],
         ),
