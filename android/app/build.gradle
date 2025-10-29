@@ -50,4 +50,7 @@ flutter {
 dependencies {
     // ONNX Runtime Mobile (for running your ONNX model)
 implementation 'com.microsoft.onnxruntime:onnxruntime-android:1.18.0'
+implementation 'com.google.mlkit:text-recognition:16.0.0'          // Latin
+implementation 'com.google.mlkit:text-recognition-devanagari:16.0.0' // Hindi
+
 }
