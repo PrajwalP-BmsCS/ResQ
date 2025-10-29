@@ -45,10 +45,6 @@ dependencies:
   intl: ^0.20.2
   location: ^7.0.1
   flutter_tts: ^4.2.3
-  shared_preferences: ^2.5.3
-  flutter_secure_storage: ^9.2.4
-  intl: ^0.20.2
-  url_launcher: 6.3.1
   flutter_phone_direct_caller: ^2.2.1
   # geolocator: ^14.0.2
 

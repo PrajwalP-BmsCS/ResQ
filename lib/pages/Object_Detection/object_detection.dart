@@ -54,7 +54,7 @@ class _ObjectDetectionScreenState extends State<ObjectDetectionScreen> {
     try {
       // add timestamp param to force ESP32 refresh
       final String url =
-          '$esp32Url?cb=${DateTime.now().millisecondsSinceEpoch}';
+          '$esp32Url';
       final response = await http.get(Uri.parse(url));
       print("📸 Fetching from $url");
 

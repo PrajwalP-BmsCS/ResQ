@@ -1,8 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io'; // <-- add this at the top of your Dart file
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:req_demo/pages/Settings/debug_data.dart';
 import 'package:req_demo/pages/Flutter_TTS/tts.dart';
 import 'package:req_demo/pages/Navigation/set_current_location.dart';
@@ -278,6 +281,16 @@ class _SettingsPageState extends State<SettingsPage> {
   List<SOSLog> logs = [];
 
   final FlutterTts tts = FlutterTts();
+
+  static const platform = MethodChannel('onnx_channel');
+
+  bool isDetectingObstacle = false;
+  bool continuousObstacleDetection = false;
+  Timer? obstacleTimer;
+  File? lastCapturedFrame;
+  List<dynamic> lastDetections = [];
+
+  final String esp32Url = '$espBaseUrl/capture';
 
   @override
   void initState() {
@@ -657,6 +670,71 @@ class _SettingsPageState extends State<SettingsPage> {
         const SnackBar(content: Text("All preferences deleted successfully.")),
       );
     }
+  }
+
+  Future<void> _detectObstacle({bool speakResults = true}) async {
+    if (isDetectingObstacle) return; // prevent overlap
+    setState(() => isDetectingObstacle = true);
+
+    try {
+      final response = await http.get(Uri.parse(esp32Url));
+      if (response.statusCode != 200) {
+        throw Exception('Failed to capture from ESP32');
+      }
+
+      final Directory tempDir = await getTemporaryDirectory();
+      final String filePath =
+          '${tempDir.path}/obstacle_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final File imageFile = File(filePath);
+      await imageFile.writeAsBytes(response.bodyBytes);
+
+      final List<dynamic> result =
+          await platform.invokeMethod('runYOLO', {'path': imageFile.path});
+
+      setState(() {
+        lastCapturedFrame = imageFile;
+        lastDetections = result;
+        isDetectingObstacle = false;
+      });
+
+      if (speakResults) {
+        if (result.isNotEmpty) {
+          String detected = result.join(", ");
+          await tts.speak("I see $detected ahead");
+        } else {
+          await tts.speak("No obstacle detected");
+        }
+      }
+    } catch (e) {
+      print("❌ Error detecting obstacle: $e");
+      setState(() => isDetectingObstacle = false);
+      if (speakResults) await tts.speak("Error detecting obstacle");
+    }
+  }
+
+  void _startContinuousObstacleDetection() {
+    _stopContinuousObstacleDetection(); // just to reset
+    continuousObstacleDetection = true;
+    obstacleTimer = Timer.periodic(const Duration(seconds: 8), (timer) async {
+      if (!continuousObstacleDetection) {
+        timer.cancel();
+        return;
+      }
+      await _detectObstacle(speakResults: false);
+
+      if (lastDetections.contains("car")) {
+        await tts.speak("Car detected ahead, please be careful");
+      }
+
+      else if (lastDetections.contains("truck")) {
+        await tts.speak("Truck detected ahead, please be careful");
+      }
+    });
+  }
+
+  void _stopContinuousObstacleDetection() {
+    continuousObstacleDetection = false;
+    obstacleTimer?.cancel();
   }
 
   // UI builder helpers below
@@ -1185,6 +1263,45 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                 ),
 
+                sectionCard(
+                  title: 'Obstacle Detection',
+                  subtitle: 'Detect nearby obstacles using camera',
+                  child: Column(
+                    children: [
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.sensors),
+                        label: Text(isDetectingObstacle
+                            ? 'Detecting...'
+                            : 'Detect Obstacle Now'),
+                        onPressed: isDetectingObstacle ? null : _detectObstacle,
+                        style: ElevatedButton.styleFrom(
+                          minimumSize: const Size.fromHeight(50),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      SwitchListTile(
+                        title: const Text("Continuous Detection Mode"),
+                        subtitle: const Text("Keeps detecting every few seconds"),
+                        value: continuousObstacleDetection,
+                        onChanged: (val) {
+                          setState(() => continuousObstacleDetection = val);
+                          if (val) {
+                            _startContinuousObstacleDetection();
+                          } else {
+                            _stopContinuousObstacleDetection();
+                          }
+                        },
+                      ),
+                      if (lastDetections.isNotEmpty)
+                        Text(
+                          "Last Detected: ${lastDetections.join(', ')}",
+                          style: const TextStyle(fontSize: 16),
+                        ),
+                    ],
+                  ),
+                ),
+
+
                 // Medical Information
                 sectionCard(
                   message: checkLanguageCondition()
@@ -1372,6 +1489,12 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    obstacleTimer?.cancel();
+    super.dispose();
   }
 }
 

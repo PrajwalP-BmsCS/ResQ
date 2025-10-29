@@ -79,6 +79,17 @@ class MainActivity : FlutterActivity() {
             result.success("Calling $phone using SIM $simSlot")
             }
 
+            "detectObstacle" -> {
+                val imagePath = call.argument<String>("path")
+                if (imagePath != null) {
+                    val obstacleDetected = detectObstacle(imagePath)
+                    result.success(obstacleDetected)
+                } else {
+                    result.error("INVALID_PATH", "Image path is null", null)
+                }
+            }
+
+
            
 
             else -> result.notImplemented()
@@ -166,6 +177,60 @@ class MainActivity : FlutterActivity() {
 
         return detectedClasses
     }
+
+    private fun detectObstacle(imagePath: String): Boolean {
+        val bitmap = BitmapFactory.decodeFile(imagePath)
+        val inputSize = 640
+        val resizedBitmap = Bitmap.createScaledBitmap(bitmap, inputSize, inputSize, true)
+
+        val inputTensor = preprocessImage(resizedBitmap)
+        val output = ortSession.run(mapOf("images" to inputTensor))
+        val outputTensor = output[0].value as Array<Array<FloatArray>>
+        val detections = postProcess(outputTensor[0], resizedBitmap.width, resizedBitmap.height)
+
+        // Detect cars or trucks
+        val obstacleDetections = detections.filter {
+            val cls = COCO_CLASSES[it.classId]
+            (cls == "car" || cls == "truck") && it.confidence > 0.5
+        }
+
+        for (det in obstacleDetections) {
+            val boxWidth = det.x2 - det.x1
+            val boxHeight = det.y2 - det.x1
+            val boxArea = boxWidth * boxHeight
+
+            // How much of the screen the detected object occupies
+            val areaRatio = boxArea / (resizedBitmap.width * resizedBitmap.height).toFloat()
+
+            // Center position of the object
+            val boxCenterX = (det.x1 + det.x2) / 2f
+            val boxCenterY = (det.y1 + det.y2) / 2f
+
+            // Define "central danger zone"
+            val centerMarginX = resizedBitmap.width * 0.25f
+            val centerMarginY = resizedBitmap.height * 0.35f
+            val centerLeft = resizedBitmap.width / 2f - centerMarginX
+            val centerRight = resizedBitmap.width / 2f + centerMarginX
+            val centerTop = resizedBitmap.height / 2f - centerMarginY
+            val centerBottom = resizedBitmap.height / 2f + centerMarginY
+
+            val isCentered = boxCenterX in centerLeft..centerRight && boxCenterY in centerTop..centerBottom
+
+            // Conditions for obstacle:
+            // - Object is large (close)
+            // - Object is in front (centered)
+            // - High confidence detection
+            if (areaRatio > 0.10 && isCentered && det.confidence > 0.6) {
+                Log.w("ONNX_OBSTACLE", "🚧 Obstacle detected: ${COCO_CLASSES[det.classId]} close and centered!")
+                return true
+            }
+        }
+
+        Log.d("ONNX_OBSTACLE", "✅ No car/truck obstacles detected.")
+        return false
+    }
+
+
 
 
     private fun preprocessImage(bitmap: Bitmap): OnnxTensor {

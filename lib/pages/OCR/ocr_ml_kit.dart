@@ -163,7 +163,7 @@ class _OCRHomePageState extends State<OCRHomePage> {
                       style: const TextStyle(fontSize: 16),
                     ),
                     const SizedBox(height: 20),
-                    Row(
+                    Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         ElevatedButton.icon(
