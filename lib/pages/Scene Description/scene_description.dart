@@ -5,9 +5,16 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
+import 'package:req_demo/pages/Flutter_STT/language_translation.dart';
+import 'package:req_demo/pages/Flutter_TTS/tts.dart';
+import 'package:req_demo/pages/Settings/app_settings.dart';
 import 'package:req_demo/pages/utils/util.dart';
 
 class SceneDescriptionScreen extends StatefulWidget {
+  final String language;
+
+  SceneDescriptionScreen({required this.language});
+
   @override
   _SceneDescriptionScreenState createState() => _SceneDescriptionScreenState();
 }
@@ -25,10 +32,8 @@ class _SceneDescriptionScreenState extends State<SceneDescriptionScreen> {
   @override
   void initState() {
     super.initState();
-    flutterTts.setLanguage("en-IN");
-    flutterTts.setSpeechRate(0.5);
-    flutterTts.setPitch(1.0);
-    _captureFromESP32(); // Automatically capture when screen opens
+
+    // _captureFromESP32(); // Automatically capture when screen opens
   }
 
   Future<void> _captureFromESP32() async {
@@ -40,7 +45,8 @@ class _SceneDescriptionScreenState extends State<SceneDescriptionScreen> {
 
     try {
       // 🧠 Cache-busting parameter so it always fetches a fresh image
-      final uri = Uri.parse("$esp32Url?_t=${DateTime.now().millisecondsSinceEpoch}");
+      final uri =
+          Uri.parse("$esp32Url?_t=${DateTime.now().millisecondsSinceEpoch}");
       final response = await http.get(uri);
 
       if (response.statusCode != 200) throw Exception("Failed to load image");
@@ -48,7 +54,8 @@ class _SceneDescriptionScreenState extends State<SceneDescriptionScreen> {
       // 📂 Save image locally
       final bytes = response.bodyBytes;
       final tempDir = await getTemporaryDirectory();
-      final filePath = "${tempDir.path}/scene_${DateTime.now().millisecondsSinceEpoch}.jpg";
+      final filePath =
+          "${tempDir.path}/scene_${DateTime.now().millisecondsSinceEpoch}.jpg";
       final imageFile = File(filePath);
       await imageFile.writeAsBytes(bytes);
 
@@ -66,22 +73,29 @@ class _SceneDescriptionScreenState extends State<SceneDescriptionScreen> {
   Future<void> _sendToServer(File imageFile) async {
     try {
       final request = http.MultipartRequest("POST", Uri.parse(serverUrl));
-      request.files.add(await http.MultipartFile.fromPath("file", imageFile.path));
+      request.files
+          .add(await http.MultipartFile.fromPath("file", imageFile.path));
 
       final response = await request.send();
 
       if (response.statusCode == 200) {
         final respStr = await response.stream.bytesToString();
         final data = jsonDecode(respStr);
-        final caption = data["caption"] ?? "No description found";
+        String? translated_text = "This looks like" + data["caption"] ?? "No description found";
+        
+        if(widget.language == "ಕನ್ನಡ (Kannada)" && translated_text != null){
+           translated_text = await TranslationService.translateWithMyMemory(translated_text!, "en|kn");
+        }
+
+        
 
         setState(() {
-          _description = caption;
+          _description = translated_text;
           _isProcessing = false;
         });
 
         // 🔊 Speak the description
-        await flutterTts.speak("This looks like $caption");
+        await TTSManager().speak(translated_text!);
       } else {
         throw Exception("Server returned ${response.statusCode}");
       }
@@ -101,7 +115,7 @@ class _SceneDescriptionScreenState extends State<SceneDescriptionScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Scene Description")),
+      appBar: AppBar(title: Text(widget.language == "English" ? "Scene Description" : "ದೃಶ್ಯ ವಿವರಣೆ")),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20.0),
         child: Column(
@@ -110,26 +124,26 @@ class _SceneDescriptionScreenState extends State<SceneDescriptionScreen> {
             if (_isProcessing) ...[
               const CircularProgressIndicator(),
               const SizedBox(height: 20),
-              const Text("Processing, please wait..."),
+               Text(widget.language == "English" ? "Processing, please wait..." : "ಪ್ರಕ್ರಿಯೆಗೊಳಿಸಲಾಗುತ್ತಿದೆ, ದಯವಿಟ್ಟು ನಿರೀಕ್ಷಿಸಿ..."),
             ] else if (_capturedImage != null) ...[
               Image.file(_capturedImage!, height: 250),
               const SizedBox(height: 20),
               if (_description != null)
                 Text(
-                  "Scene: $_description",
+                widget.language == "English" ? "Scene: $_description" : "ದೃಶ್ಯ: $_description",
                   style: const TextStyle(fontSize: 16),
                 ),
               const SizedBox(height: 20),
               ElevatedButton.icon(
                 onPressed: _captureFromESP32,
                 icon: const Icon(Icons.refresh),
-                label: const Text("Retake"),
+                label:  Text(widget.language == "English" ? "Retake" : "ಮರುಪಡೆಯಿರಿ"),
               ),
             ] else
               ElevatedButton.icon(
                 onPressed: _captureFromESP32,
                 icon: const Icon(Icons.camera_alt),
-                label: const Text("Capture Scene"),
+                label:  Text(widget.language == "English" ? "Capture Scene" : "ದೃಶ್ಯ ಸೆರೆಹಿಡಿಯುವಿಕೆ"),
               ),
           ],
         ),

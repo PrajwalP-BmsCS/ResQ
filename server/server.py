@@ -185,11 +185,11 @@ async def get_user_intent(client: Groq, text: str) -> dict:
         dict: Intent detection result with fields:
               - intent, listen_back, contact_option, want_to_call, want_to_share, response
     """
-    
+
     prompt = f"""
 You are an AI assistant that identifies the user's intent based on their spoken or written request.
 
-From the following text, extract exactly ONE intent from these ten options:
+From the following text, extract exactly ONE intent from these twelve options:
 1. connect_glasses
 2. object_detection
 3. scene_description
@@ -201,6 +201,7 @@ From the following text, extract exactly ONE intent from these ten options:
 9. share_location
 10. yes_no_response
 11. emergency
+12. settings
 
 
 Text: "{text}"
@@ -208,9 +209,10 @@ Text: "{text}"
 Return the result in the following strict JSON format:
 
 {{
-  "intent": "<one_of_the_above_ten>",
+  "intent": "<one_of_the_above_twelve>",
   "listen_back": true/false,
   "contact_option": null or <integer>,
+  "contact_name": null or "<name>",
   "want_to_call": true/false,
   "want_to_share": true/false,
   "response": "yes" or "no" or null
@@ -222,6 +224,7 @@ Rules:
 - For all values, use lowercase: true, false, null
 - response field is ONLY used for yes_no_response intent
 - want_to_share field is used for share_location intent
+- contact_name field is used when user mentions a specific person/entity name
 
 INTENT RULES:
 - If the user wants to connect to glasses, or identify connection → use "connect_glasses"
@@ -229,7 +232,8 @@ INTENT RULES:
 - If they want to know what is happening in the surroundings → use "scene_description"
 - If they are asking about a specific item or thing → use "object_detection"
 - If they want directions, movement, or path guidance → use "navigation"
-- If the user asks for emergency or alert to family → use "emergenecy" 
+- If the user asks for emergency or alert to family → use "emergency" 
+- If the user asks for settings or take him to settings → use "settings"
 
 YES/NO RESPONSE RULES:
 - If the user simply says "yes", "yeah", "sure", "okay", "yep", "absolutely" → use "yes_no_response" with response: "yes"
@@ -238,126 +242,370 @@ YES/NO RESPONSE RULES:
 
 CALL CONTACT RULES:
 - If the user asks "what are my contacts", "list my contacts", "show my contacts", "who can I call" → use "list_contacts" with listen_back: true, want_to_call: false
-- If the user says "I want to call", "call someone", "make a call", "call a contact" → use "list_contacts" with listen_back: true, want_to_call: false
-- If the user specifies "call option 1", "call option 2", "call the first", "dial option 1", etc. → use "call_contact" with listen_back: false, contact_option: <number>, want_to_call: false
+- If the user says "I want to call", "call someone", "make a call", "call a contact" (without specifying a name) → use "list_contacts" with listen_back: true, want_to_call: false
+- If the user specifies "call option 1", "call option 2", "call the first", "dial option 1", etc. → use "call_contact" with listen_back: false, contact_option: <number>, want_to_call: true
+- If the user mentions ANY name after call/dial/phone keywords: "call [NAME]", "dial [NAME]", "phone [NAME]", "ring [NAME]" → use "call_contact" with listen_back: false, contact_name: "<extract_exact_name>", want_to_call: true
+- IMPORTANT: Extract the EXACT name as spoken by the user. Do not validate if the name exists. Just extract whatever name is mentioned after the action verb (call/dial/phone).
+- Examples of name extraction:
+  * "call Pradeep" → contact_name: "Pradeep"
+  * "call mom" → contact_name: "mom"
+  * "dial Sarah Johnson" → contact_name: "Sarah Johnson"
+  * "phone office" → contact_name: "office"
+  * "call doctor smith" → contact_name: "doctor smith"
+  * "ring my brother" → contact_name: "my brother"
 - If the user confirms a call after hearing the contact → use "call_contact" with listen_back: false, contact_option: <last_heard_option>, want_to_call: true
 - listen_back: true means ask for confirmation before proceeding
 - listen_back: false means directly process the call
-- want_to_call: true when user explicitly confirms they want to call; false otherwise
+- want_to_call: true when user explicitly wants to initiate a call
+- contact_name: extract EXACTLY whatever name/entity the user mentions after the action verb, including titles, multiple words, or descriptive terms
 
-SHARE LOCATION RULES (NEW):
-- If the user asks "share my location", "share location", "/share", "share my current location", "send my location", "share where I am" → use "list_share_contacts" with listen_back: true, want_to_share: false
-- If the user says "I want to share", "share with someone", "share location with contacts", "send my location to contacts" → use "list_share_contacts" with listen_back: true, want_to_share: false
-- If the user specifies "share with option 1", "share to option 2", "share with the first", "send to option 1", etc. → use "share_location" with listen_back: false, contact_option: <number>, want_to_share: false
+SHARE LOCATION RULES:
+- If the user asks "share my location", "share location", "/share", "share my current location", "send my location", "share where I am" (without specifying a recipient) → use "list_share_contacts" with listen_back: true, want_to_share: false
+- If the user says "I want to share", "share with someone", "share location with contacts", "send my location to contacts" (without specifying a recipient) → use "list_share_contacts" with listen_back: true, want_to_share: false
+- If the user specifies "share with option 1", "share to option 2", "share with the first", "send to option 1", etc. → use "share_location" with listen_back: false, contact_option: <number>, want_to_share: true
+- If the user mentions ANY name with share/send keywords: "share location with [NAME]", "send location to [NAME]", "share with [NAME]" → use "share_location" with listen_back: false, contact_name: "<extract_exact_name>", want_to_share: true
+- IMPORTANT: Extract the EXACT name as spoken by the user. Do not validate if the name exists. Just extract whatever name is mentioned after the share/send action.
+- Examples of name extraction:
+  * "share location with Pradeep" → contact_name: "Pradeep"
+  * "send location to home" → contact_name: "home"
+  * "share with Sarah Johnson" → contact_name: "Sarah Johnson"
+  * "send my location to office" → contact_name: "office"
+  * "share where I am with doctor" → contact_name: "doctor"
+  * "send to my brother" → contact_name: "my brother"
 - If the user confirms sharing after hearing the contact → use "share_location" with listen_back: false, contact_option: <last_heard_option>, want_to_share: true
 - If the user says "share with all" or "share with everyone" → use "share_location" with listen_back: false, contact_option: -1 (represents all contacts), want_to_share: true
 - listen_back: true means ask for confirmation before sharing
 - listen_back: false means directly process the share
-- want_to_share: true when user explicitly confirms they want to share; false otherwise
+- want_to_share: true when user explicitly wants to share location
 - contact_option: -1 means share with all contacts; positive integer (1, 2, 3...) means specific contact
+- contact_name: extract EXACTLY whatever name/entity the user mentions after share/send keywords, including titles, multiple words, or descriptive terms
 
 EXAMPLES:
 1. User: "Show me my contacts"
-   Response: {{"intent": "list_contacts", "listen_back": true, "contact_option": null, "want_to_call": false, "want_to_share": false, "response": null}}
+   Response: {{"intent": "list_contacts", "listen_back": true, "contact_option": null, "contact_name": null, "want_to_call": false, "want_to_share": false, "response": null}}
 
 2. User: "I want to call someone"
-   Response: {{"intent": "list_contacts", "listen_back": true, "contact_option": null, "want_to_call": false, "want_to_share": false, "response": null}}
+   Response: {{"intent": "list_contacts", "listen_back": true, "contact_option": null, "contact_name": null, "want_to_call": false, "want_to_share": false, "response": null}}
 
 3. User: "Call option number 1"
-   Response: {{"intent": "call_contact", "listen_back": false, "contact_option": 1, "want_to_call": true, "want_to_share": false, "response": null}}
+   Response: {{"intent": "call_contact", "listen_back": false, "contact_option": 1, "contact_name": null, "want_to_call": true, "want_to_share": false, "response": null}}
+
 4. User: "Call option number 2"
-   Response: {{"intent": "call_contact", "listen_back": false, "contact_option": 2, "want_to_call": true, "want_to_share": false, "response": null}}
+   Response: {{"intent": "call_contact", "listen_back": false, "contact_option": 2, "contact_name": null, "want_to_call": true, "want_to_share": false, "response": null}}
+
 5. User: "Call option number 3"
-   Response: {{"intent": "call_contact", "listen_back": false, "contact_option": 3, "want_to_call": true, "want_to_share": false, "response": null}}
+   Response: {{"intent": "call_contact", "listen_back": false, "contact_option": 3, "contact_name": null, "want_to_call": true, "want_to_share": false, "response": null}}
 
 6. User: "Call option number 4"
-   Response: {{"intent": "call_contact", "listen_back": false, "contact_option": 4, "want_to_call": true, "want_to_share": false, "response": null}}
+   Response: {{"intent": "call_contact", "listen_back": false, "contact_option": 4, "contact_name": null, "want_to_call": true, "want_to_share": false, "response": null}}
 
 7. User: "Yes"
-   Response: {{"intent": "yes_no_response", "listen_back": false, "contact_option": null, "want_to_call": false, "want_to_share": false, "response": "yes"}}
+   Response: {{"intent": "yes_no_response", "listen_back": false, "contact_option": null, "contact_name": null, "want_to_call": false, "want_to_share": false, "response": "yes"}}
 
 8. User: "No"
-   Response: {{"intent": "yes_no_response", "listen_back": false, "contact_option": null, "want_to_call": false, "want_to_share": false, "response": "no"}}
+   Response: {{"intent": "yes_no_response", "listen_back": false, "contact_option": null, "contact_name": null, "want_to_call": false, "want_to_share": false, "response": "no"}}
 
 9. User: "Yes, call the first contact"
-   Response: {{"intent": "call_contact", "listen_back": false, "contact_option": 1, "want_to_call": true, "want_to_share": false, "response": null}}
+   Response: {{"intent": "call_contact", "listen_back": false, "contact_option": 1, "contact_name": null, "want_to_call": true, "want_to_share": false, "response": null}}
 
 10. User: "Yes, call the second contact"
-   Response: {{"intent": "call_contact", "listen_back": false, "contact_option": 2, "want_to_call": true, "want_to_share": false, "response": null}}
+    Response: {{"intent": "call_contact", "listen_back": false, "contact_option": 2, "contact_name": null, "want_to_call": true, "want_to_share": false, "response": null}}
 
 11. User: "Yes, call the third contact"
-   Response: {{"intent": "call_contact", "listen_back": false, "contact_option": 3, "want_to_call": true, "want_to_share": false, "response": null}}
+    Response: {{"intent": "call_contact", "listen_back": false, "contact_option": 3, "contact_name": null, "want_to_call": true, "want_to_share": false, "response": null}}
 
 12. User: "Yes, call the fourth contact"
-   Response: {{"intent": "call_contact", "listen_back": false, "contact_option": 4, "want_to_call": true, "want_to_share": false, "response": null}}
+    Response: {{"intent": "call_contact", "listen_back": false, "contact_option": 4, "contact_name": null, "want_to_call": true, "want_to_share": false, "response": null}}
 
 13. User: "Share my location"
-   Response: {{"intent": "list_share_contacts", "listen_back": true, "contact_option": null, "want_to_call": false, "want_to_share": false, "response": null}}
+    Response: {{"intent": "list_share_contacts", "listen_back": true, "contact_option": null, "contact_name": null, "want_to_call": false, "want_to_share": false, "response": null}}
 
 14. User: "/share"
-   Response: {{"intent": "list_share_contacts", "listen_back": true, "contact_option": null, "want_to_call": false, "want_to_share": false, "response": null}}
+    Response: {{"intent": "list_share_contacts", "listen_back": true, "contact_option": null, "contact_name": null, "want_to_call": false, "want_to_share": false, "response": null}}
 
 15. User: "Share location with option 1"
-   Response: {{"intent": "share_location", "listen_back": false, "contact_option": 1, "want_to_call": false, "want_to_share": true, "response": null}}
+    Response: {{"intent": "share_location", "listen_back": false, "contact_option": 1, "contact_name": null, "want_to_call": false, "want_to_share": true, "response": null}}
 
 16. User: "Share location with option number 2"
-   Response: {{"intent": "share_location", "listen_back": false, "contact_option": 2, "want_to_call": false, "want_to_share": true, "response": null}}
+    Response: {{"intent": "share_location", "listen_back": false, "contact_option": 2, "contact_name": null, "want_to_call": false, "want_to_share": true, "response": null}}
 
 17. User: "Share location with option 3"
-   Response: {{"intent": "share_location", "listen_back": false, "contact_option": 3, "want_to_call": false, "want_to_share": true, "response": null}}
+    Response: {{"intent": "share_location", "listen_back": false, "contact_option": 3, "contact_name": null, "want_to_call": false, "want_to_share": true, "response": null}}
 
 18. User: "Share location with option 4"
-   Response: {{"intent": "share_location", "listen_back": false, "contact_option": 4, "want_to_call": false, "want_to_share": true, "response": null}}
+    Response: {{"intent": "share_location", "listen_back": false, "contact_option": 4, "contact_name": null, "want_to_call": false, "want_to_share": true, "response": null}}
 
 19. User: "Share with all contacts"
-    Response: {{"intent": "share_location", "listen_back": false, "contact_option": -1, "want_to_call": false, "want_to_share": true, "response": null}}
+    Response: {{"intent": "share_location", "listen_back": false, "contact_option": -1, "contact_name": null, "want_to_call": false, "want_to_share": true, "response": null}}
 
 20. User: "Yes, share my location to option 1"
-    Response: {{"intent": "share_location", "listen_back": false, "contact_option": 1, "want_to_call": false, "want_to_share": true, "response": null}}
-
+    Response: {{"intent": "share_location", "listen_back": false, "contact_option": 1, "contact_name": null, "want_to_call": false, "want_to_share": true, "response": null}}
 
 21. User: "Yes, share my location to option 2"
-    Response: {{"intent": "share_location", "listen_back": false, "contact_option": 2, "want_to_call": false, "want_to_share": true, "response": null}}
+    Response: {{"intent": "share_location", "listen_back": false, "contact_option": 2, "contact_name": null, "want_to_call": false, "want_to_share": true, "response": null}}
 
 22. User: "Yes, share my location to option 3"
-    Response: {{"intent": "share_location", "listen_back": false, "contact_option": 3, "want_to_call": false, "want_to_share": true, "response": null}}
+    Response: {{"intent": "share_location", "listen_back": false, "contact_option": 3, "contact_name": null, "want_to_call": false, "want_to_share": true, "response": null}}
 
 23. User: "Yes, share my location to option 4"
-    Response: {{"intent": "share_location", "listen_back": false, "contact_option": 4, "want_to_call": false, "want_to_share": true, "response": null}}
+    Response: {{"intent": "share_location", "listen_back": false, "contact_option": 4, "contact_name": null, "want_to_call": false, "want_to_share": true, "response": null}}
 
 24. User: "Send my location to option 1"
-    Response: {{"intent": "share_location", "listen_back": false, "contact_option": 1, "want_to_call": false, "want_to_share": false, "response": null}}
+    Response: {{"intent": "share_location", "listen_back": false, "contact_option": 1, "contact_name": null, "want_to_call": false, "want_to_share": true, "response": null}}
 
 25. User: "Send my location to option 2"
-    Response: {{"intent": "share_location", "listen_back": false, "contact_option": 2, "want_to_call": false, "want_to_share": false, "response": null}}
+    Response: {{"intent": "share_location", "listen_back": false, "contact_option": 2, "contact_name": null, "want_to_call": false, "want_to_share": true, "response": null}}
 
 26. User: "Send my location to option 3"
-    Response: {{"intent": "share_location", "listen_back": false, "contact_option": 3, "want_to_call": false, "want_to_share": false, "response": null}}
+    Response: {{"intent": "share_location", "listen_back": false, "contact_option": 3, "contact_name": null, "want_to_call": false, "want_to_share": true, "response": null}}
 
 27. User: "Send my location to option 4"
-    Response: {{"intent": "share_location", "listen_back": false, "contact_option": 4, "want_to_call": false, "want_to_share": false, "response": null}}
+    Response: {{"intent": "share_location", "listen_back": false, "contact_option": 4, "contact_name": null, "want_to_call": false, "want_to_share": true, "response": null}}
 
 28. User: "Yes, I want to share"
-    Response: {{"intent": "share_location", "listen_back": false, "contact_option": null, "want_to_call": false, "want_to_share": true, "response": null}}
+    Response: {{"intent": "share_location", "listen_back": false, "contact_option": null, "contact_name": null, "want_to_call": false, "want_to_share": true, "response": null}}
 
 29. User: "No, don't share"
-    Response: {{"intent": "yes_no_response", "listen_back": false, "contact_option": null, "want_to_call": false, "want_to_share": false, "response": "no"}}
+    Response: {{"intent": "yes_no_response", "listen_back": false, "contact_option": null, "contact_name": null, "want_to_call": false, "want_to_share": false, "response": "no"}}
 
 30. User: "Navigate to home"
-    Response: {{"intent": "navigation", "listen_back": false, "contact_option": null, "want_to_call": false, "want_to_share": false, "response": "home"}}
+    Response: {{"intent": "navigation", "listen_back": false, "contact_option": null, "contact_name": null, "want_to_call": false, "want_to_share": false, "response": null}}
 
 31. User: "I need help"
-    Response: {{"intent": "emergency", "listen_back": false, "contact_option": 1, "want_to_call": true, "want_to_share": true, "response": "emergency"}}
+    Response: {{"intent": "emergency", "listen_back": false, "contact_option": 1, "contact_name": null, "want_to_call": true, "want_to_share": true, "response": null}}
 
 32. User: "Help me"
-    Response: {{"intent": "emergency", "listen_back": false, "contact_option": 1, "want_to_call": true, "want_to_share": true, "response": "emergency"}}
+    Response: {{"intent": "emergency", "listen_back": false, "contact_option": 1, "contact_name": null, "want_to_call": true, "want_to_share": true, "response": null}}
 
-33. User: "It’s an emergency"
-    Response: {{"intent": "emergency", "listen_back": false, "contact_option": 1, "want_to_call": true, "want_to_share": true, "response": "emergency"}}
+33. User: "It's an emergency"
+    Response: {{"intent": "emergency", "listen_back": false, "contact_option": 1, "contact_name": null, "want_to_call": true, "want_to_share": true, "response": null}}
 
 34. User: "ALERT FAMILY"
-    Response: {{"intent": "emergency", "listen_back": false, "contact_option": 1, "want_to_call": true, "want_to_share": true, "response": "emergency"}}
+    Response: {{"intent": "emergency", "listen_back": false, "contact_option": 1, "contact_name": null, "want_to_call": true, "want_to_share": true, "response": null}}
+
+35. User: "Call Pradeep"
+    Response: {{"intent": "call_contact", "listen_back": false, "contact_option": null, "contact_name": "Pradeep", "want_to_call": true, "want_to_share": false, "response": null}}
+
+36. User: "Call home"
+    Response: {{"intent": "call_contact", "listen_back": false, "contact_option": null, "contact_name": "home", "want_to_call": true, "want_to_share": false, "response": null}}
+
+37. User: "Dial mom"
+    Response: {{"intent": "call_contact", "listen_back": false, "contact_option": null, "contact_name": "mom", "want_to_call": true, "want_to_share": false, "response": null}}
+
+38. User: "Call John please"
+    Response: {{"intent": "call_contact", "listen_back": false, "contact_option": null, "contact_name": "John", "want_to_call": true, "want_to_share": false, "response": null}}
+
+39. User: "Phone dad"
+    Response: {{"intent": "call_contact", "listen_back": false, "contact_option": null, "contact_name": "dad", "want_to_call": true, "want_to_share": false, "response": null}}
+
+40. User: "Call doctor Smith"
+    Response: {{"intent": "call_contact", "listen_back": false, "contact_option": null, "contact_name": "doctor Smith", "want_to_call": true, "want_to_share": false, "response": null}}
+
+41. User: "Ring my brother"
+    Response: {{"intent": "call_contact", "listen_back": false, "contact_option": null, "contact_name": "my brother", "want_to_call": true, "want_to_share": false, "response": null}}
+
+42. User: "Call anyone whose name is Rajesh"
+    Response: {{"intent": "call_contact", "listen_back": false, "contact_option": null, "contact_name": "Rajesh", "want_to_call": true, "want_to_share": false, "response": null}}
+
+43. User: "Share location with Pradeep"
+    Response: {{"intent": "share_location", "listen_back": false, "contact_option": null, "contact_name": "Pradeep", "want_to_call": false, "want_to_share": true, "response": null}}
+
+44. User: "Share my location with home"
+    Response: {{"intent": "share_location", "listen_back": false, "contact_option": null, "contact_name": "home", "want_to_call": false, "want_to_share": true, "response": null}}
+
+45. User: "Send location to mom"
+    Response: {{"intent": "share_location", "listen_back": false, "contact_option": null, "contact_name": "mom", "want_to_call": false, "want_to_share": true, "response": null}}
+
+46. User: "Share where I am with John"
+    Response: {{"intent": "share_location", "listen_back": false, "contact_option": null, "contact_name": "John", "want_to_call": false, "want_to_share": true, "response": null}}
+
+47. User: "Send my location to Prajwal"
+    Response: {{"intent": "share_location", "listen_back": false, "contact_option": null, "contact_name": "Prajwal", "want_to_call": false, "want_to_share": true, "response": null}}
+
+48. User: "Share with doctor"
+    Response: {{"intent": "share_location", "listen_back": false, "contact_option": null, "contact_name": "doctor", "want_to_call": false, "want_to_share": true, "response": null}}
+
+49. User: "Send location to my brother"
+    Response: {{"intent": "share_location", "listen_back": false, "contact_option": null, "contact_name": "my brother", "want_to_call": false, "want_to_share": true, "response": null}}
+
+50. User: "Share my location with anyone named Kumar"
+    Response: {{"intent": "share_location", "listen_back": false, "contact_option": null, "contact_name": "Kumar", "want_to_call": false, "want_to_share": true, "response": null}}
 """
+    
+#     prompt = f"""
+# You are an AI assistant that identifies the user's intent based on their spoken or written request.
+
+# From the following text, extract exactly ONE intent from these ten options:
+# 1. connect_glasses
+# 2. object_detection
+# 3. scene_description
+# 4. ocr
+# 5. navigation
+# 6. list_contacts
+# 7. call_contact
+# 8. list_share_contacts
+# 9. share_location
+# 10. yes_no_response
+# 11. emergency
+# 12. settings
+
+
+# Text: "{text}"
+
+# Return the result in the following strict JSON format:
+
+# {{
+#   "intent": "<one_of_the_above_twelve>",
+#   "listen_back": true/false,
+#   "contact_option": null or <integer>,
+#   "want_to_call": true/false,
+#   "want_to_share": true/false,
+#   "response": "yes" or "no" or null
+# }}
+
+# Rules:
+# - Do NOT add explanations or extra keys.
+# - Choose ONLY the most relevant intent based on the text.
+# - For all values, use lowercase: true, false, null
+# - response field is ONLY used for yes_no_response intent
+# - want_to_share field is used for share_location intent
+
+# INTENT RULES:
+# - If the user wants to connect to glasses, or identify connection → use "connect_glasses"
+# - If the user is asking to read, extract text, or identify letters/boards → use "ocr"
+# - If they want to know what is happening in the surroundings → use "scene_description"
+# - If they are asking about a specific item or thing → use "object_detection"
+# - If they want directions, movement, or path guidance → use "navigation"
+# - If the user asks for emergency or alert to family → use "emergency" 
+# - If the user asks for settings or take him to settings → use "settings_page"
+
+# YES/NO RESPONSE RULES:
+# - If the user simply says "yes", "yeah", "sure", "okay", "yep", "absolutely" → use "yes_no_response" with response: "yes"
+# - If the user simply says "no", "nope", "nah", "not now", "don't", "cancel" → use "yes_no_response" with response: "no"
+# - Set all other fields to null/false for yes_no_response
+
+# CALL CONTACT RULES:
+# - If the user asks "what are my contacts", "list my contacts", "show my contacts", "who can I call" → use "list_contacts" with listen_back: true, want_to_call: false
+# - If the user says "I want to call", "call someone", "make a call", "call a contact" → use "list_contacts" with listen_back: true, want_to_call: false
+# - If the user specifies "call option 1", "call option 2", "call the first", "dial option 1", etc. → use "call_contact" with listen_back: false, contact_option: <number>, want_to_call: false
+# - If the user confirms a call after hearing the contact → use "call_contact" with listen_back: false, contact_option: <last_heard_option>, want_to_call: true
+# - listen_back: true means ask for confirmation before proceeding
+# - listen_back: false means directly process the call
+# - want_to_call: true when user explicitly confirms they want to call; false otherwise
+
+# SHARE LOCATION RULES (NEW):
+# - If the user asks "share my location", "share location", "/share", "share my current location", "send my location", "share where I am" → use "list_share_contacts" with listen_back: true, want_to_share: false
+# - If the user says "I want to share", "share with someone", "share location with contacts", "send my location to contacts" → use "list_share_contacts" with listen_back: true, want_to_share: false
+# - If the user specifies "share with option 1", "share to option 2", "share with the first", "send to option 1", etc. → use "share_location" with listen_back: false, contact_option: <number>, want_to_share: false
+# - If the user confirms sharing after hearing the contact → use "share_location" with listen_back: false, contact_option: <last_heard_option>, want_to_share: true
+# - If the user says "share with all" or "share with everyone" → use "share_location" with listen_back: false, contact_option: -1 (represents all contacts), want_to_share: true
+# - listen_back: true means ask for confirmation before sharing
+# - listen_back: false means directly process the share
+# - want_to_share: true when user explicitly confirms they want to share; false otherwise
+# - contact_option: -1 means share with all contacts; positive integer (1, 2, 3...) means specific contact
+
+# EXAMPLES:
+# 1. User: "Show me my contacts"
+#    Response: {{"intent": "list_contacts", "listen_back": true, "contact_option": null, "want_to_call": false, "want_to_share": false, "response": null}}
+
+# 2. User: "I want to call someone"
+#    Response: {{"intent": "list_contacts", "listen_back": true, "contact_option": null, "want_to_call": false, "want_to_share": false, "response": null}}
+
+# 3. User: "Call option number 1"
+#    Response: {{"intent": "call_contact", "listen_back": false, "contact_option": 1, "want_to_call": true, "want_to_share": false, "response": null}}
+# 4. User: "Call option number 2"
+#    Response: {{"intent": "call_contact", "listen_back": false, "contact_option": 2, "want_to_call": true, "want_to_share": false, "response": null}}
+# 5. User: "Call option number 3"
+#    Response: {{"intent": "call_contact", "listen_back": false, "contact_option": 3, "want_to_call": true, "want_to_share": false, "response": null}}
+
+# 6. User: "Call option number 4"
+#    Response: {{"intent": "call_contact", "listen_back": false, "contact_option": 4, "want_to_call": true, "want_to_share": false, "response": null}}
+
+# 7. User: "Yes"
+#    Response: {{"intent": "yes_no_response", "listen_back": false, "contact_option": null, "want_to_call": false, "want_to_share": false, "response": "yes"}}
+
+# 8. User: "No"
+#    Response: {{"intent": "yes_no_response", "listen_back": false, "contact_option": null, "want_to_call": false, "want_to_share": false, "response": "no"}}
+
+# 9. User: "Yes, call the first contact"
+#    Response: {{"intent": "call_contact", "listen_back": false, "contact_option": 1, "want_to_call": true, "want_to_share": false, "response": null}}
+
+# 10. User: "Yes, call the second contact"
+#    Response: {{"intent": "call_contact", "listen_back": false, "contact_option": 2, "want_to_call": true, "want_to_share": false, "response": null}}
+
+# 11. User: "Yes, call the third contact"
+#    Response: {{"intent": "call_contact", "listen_back": false, "contact_option": 3, "want_to_call": true, "want_to_share": false, "response": null}}
+
+# 12. User: "Yes, call the fourth contact"
+#    Response: {{"intent": "call_contact", "listen_back": false, "contact_option": 4, "want_to_call": true, "want_to_share": false, "response": null}}
+
+# 13. User: "Share my location"
+#    Response: {{"intent": "list_share_contacts", "listen_back": true, "contact_option": null, "want_to_call": false, "want_to_share": false, "response": null}}
+
+# 14. User: "/share"
+#    Response: {{"intent": "list_share_contacts", "listen_back": true, "contact_option": null, "want_to_call": false, "want_to_share": false, "response": null}}
+
+# 15. User: "Share location with option 1"
+#    Response: {{"intent": "share_location", "listen_back": false, "contact_option": 1, "want_to_call": false, "want_to_share": true, "response": null}}
+
+# 16. User: "Share location with option number 2"
+#    Response: {{"intent": "share_location", "listen_back": false, "contact_option": 2, "want_to_call": false, "want_to_share": true, "response": null}}
+
+# 17. User: "Share location with option 3"
+#    Response: {{"intent": "share_location", "listen_back": false, "contact_option": 3, "want_to_call": false, "want_to_share": true, "response": null}}
+
+# 18. User: "Share location with option 4"
+#    Response: {{"intent": "share_location", "listen_back": false, "contact_option": 4, "want_to_call": false, "want_to_share": true, "response": null}}
+
+# 19. User: "Share with all contacts"
+#     Response: {{"intent": "share_location", "listen_back": false, "contact_option": -1, "want_to_call": false, "want_to_share": true, "response": null}}
+
+# 20. User: "Yes, share my location to option 1"
+#     Response: {{"intent": "share_location", "listen_back": false, "contact_option": 1, "want_to_call": false, "want_to_share": true, "response": null}}
+
+
+# 21. User: "Yes, share my location to option 2"
+#     Response: {{"intent": "share_location", "listen_back": false, "contact_option": 2, "want_to_call": false, "want_to_share": true, "response": null}}
+
+# 22. User: "Yes, share my location to option 3"
+#     Response: {{"intent": "share_location", "listen_back": false, "contact_option": 3, "want_to_call": false, "want_to_share": true, "response": null}}
+
+# 23. User: "Yes, share my location to option 4"
+#     Response: {{"intent": "share_location", "listen_back": false, "contact_option": 4, "want_to_call": false, "want_to_share": true, "response": null}}
+
+# 24. User: "Send my location to option 1"
+#     Response: {{"intent": "share_location", "listen_back": false, "contact_option": 1, "want_to_call": false, "want_to_share": false, "response": null}}
+
+# 25. User: "Send my location to option 2"
+#     Response: {{"intent": "share_location", "listen_back": false, "contact_option": 2, "want_to_call": false, "want_to_share": false, "response": null}}
+
+# 26. User: "Send my location to option 3"
+#     Response: {{"intent": "share_location", "listen_back": false, "contact_option": 3, "want_to_call": false, "want_to_share": false, "response": null}}
+
+# 27. User: "Send my location to option 4"
+#     Response: {{"intent": "share_location", "listen_back": false, "contact_option": 4, "want_to_call": false, "want_to_share": false, "response": null}}
+
+# 28. User: "Yes, I want to share"
+#     Response: {{"intent": "share_location", "listen_back": false, "contact_option": null, "want_to_call": false, "want_to_share": true, "response": null}}
+
+# 29. User: "No, don't share"
+#     Response: {{"intent": "yes_no_response", "listen_back": false, "contact_option": null, "want_to_call": false, "want_to_share": false, "response": "no"}}
+
+# 30. User: "Navigate to home"
+#     Response: {{"intent": "navigation", "listen_back": false, "contact_option": null, "want_to_call": false, "want_to_share": false, "response": "home"}}
+
+# 31. User: "I need help"
+#     Response: {{"intent": "emergency", "listen_back": false, "contact_option": 1, "want_to_call": true, "want_to_share": true, "response": "emergency"}}
+
+# 32. User: "Help me"
+#     Response: {{"intent": "emergency", "listen_back": false, "contact_option": 1, "want_to_call": true, "want_to_share": true, "response": "emergency"}}
+
+# 33. User: "It's an emergency"
+#     Response: {{"intent": "emergency", "listen_back": false, "contact_option": 1, "want_to_call": true, "want_to_share": true, "response": "emergency"}}
+
+# 34. User: "ALERT FAMILY"
+#     Response: {{"intent": "emergency", "listen_back": false, "contact_option": 1, "want_to_call": true, "want_to_share": true, "response": "emergency"}}
+# """
     
     try:
         # Call Groq API

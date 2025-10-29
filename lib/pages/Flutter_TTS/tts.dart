@@ -1,24 +1,51 @@
+import 'dart:ffi';
 import 'dart:ui';
 
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:req_demo/pages/Settings/settings_page.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+Map<String, dynamic> prefsMap = {};
+late LocalStore store;
+
+Future<double> getPrefferedSpeed() async {
+  prefsMap = store.getGeneralPrefs();
+  print("✅ Loaded prefsMap: $prefsMap");
+  return prefsMap['voiceSpeed'] ?? 0.5;
+}
+
+Future<String> getPrefferedLanguage() async { 
+  prefsMap = store.getGeneralPrefs();
+  print("✅ Loaded prefsMap: $prefsMap");
+
+  
+
+  if(prefsMap['lang'] == "English" || prefsMap['lang'] == null){
+    return "en-US";
+  }
+  
+  return "kn-IN";
+}
 
 /// Singleton class to manage Text-to-Speech functionality
 /// Configure all TTS settings in one place
 class TTSManager {
   // Singleton instance
+
   static final TTSManager _instance = TTSManager._internal();
   factory TTSManager() => _instance;
   TTSManager._internal();
 
   // FlutterTts instance
   final FlutterTts _flutterTts = FlutterTts();
-  
+
   // Configuration variables - Change these as needed
-  static const String _language = "en-US"; // Language code
-  static const double _speechRate = 0.5; // 0.0 (slow) to 1.0 (fast)
+  String _language = "en-US"; // Language code
+  double _speechRate = 0.5; // 0.0 (slow) to 1.0 (fast)
   static const double _volume = 1.0; // 0.0 to 1.0
   static const double _pitch = 1.0; // 0.5 to 2.0 (1.0 is normal)
   
+
   // Initialization flag
   bool _isInitialized = false;
 
@@ -27,15 +54,19 @@ class TTSManager {
     if (_isInitialized) return;
 
     try {
+      _speechRate = await getPrefferedSpeed();
+
+      _language = await getPrefferedLanguage(); 
+
       // Set language
       await _flutterTts.setLanguage(_language);
-      
+
       // Set speech rate
       await _flutterTts.setSpeechRate(_speechRate);
-      
+
       // Set volume
       await _flutterTts.setVolume(_volume);
-      
+
       // Set pitch
       await _flutterTts.setPitch(_pitch);
 
@@ -75,23 +106,23 @@ class TTSManager {
   /// [message] - The text to be spoken
   /// Returns Future<void>
 // In TTSManager class
-Future<void> speak(String message, {VoidCallback? onComplete}) async {
-  if (!_isInitialized) {
-    await initialize();
-  }
+  Future<void> speak(String message, {VoidCallback? onComplete}) async {
+    if (!_isInitialized) {
+      await initialize();
+    }
 
-  if (message.isEmpty) {
-    return;
-  }
+    if (message.isEmpty) {
+      return;
+    }
 
-  try {
-    await _flutterTts.speak(message);
-    await _flutterTts.awaitSpeakCompletion(true);
-    onComplete?.call(); // Call completion callback
-  } catch (e) {
-    print("TTS Speak Error: $e");
+    try {
+      await _flutterTts.speak(message);
+      await _flutterTts.awaitSpeakCompletion(true);
+      onComplete?.call(); // Call completion callback
+    } catch (e) {
+      print("TTS Speak Error: $e");
+    }
   }
-}
 
   /// Stop current speech
   Future<void> stop() async {
@@ -177,5 +208,3 @@ Future<void> speak(String message, {VoidCallback? onComplete}) async {
     }
   }
 }
-
-

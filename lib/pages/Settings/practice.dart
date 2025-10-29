@@ -4,13 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:io';
 import 'package:http/http.dart' as http;
-import 'package:req_demo/pages/Flutter_STT/sts.dart';
+import 'package:req_demo/pages/Flutter_STT/english_stt.dart';
 import 'package:req_demo/pages/Flutter_TTS/tts.dart';
 import 'package:req_demo/pages/Navigation/navigation.dart';
 import 'package:req_demo/pages/OCR/ocr_ml_kit.dart';
 import 'package:req_demo/pages/Object_Detection/object_detection.dart';
 import 'package:req_demo/pages/Settings/settings_page.dart';
 import 'package:req_demo/pages/home_page.dart';
+import 'package:req_demo/pages/utils/mediaButton.dart';
 import 'package:req_demo/pages/utils/onboard.dart';
 import 'package:req_demo/pages/utils/util.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -51,9 +52,14 @@ class _MediaButtonTestPageState extends State<MediaButtonTestPage>
   void initState() {
     super.initState();
 
+    MediaButtonService().setHandlers(
+    onSingleTap: (duration) => _onSingleTap(),
+    onLongPress: (duration) => _onLongPress(),
+  );
+
     // Show onboarding after the first frame is built
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkAndShowOnboarding();
+      // _checkAndShowOnboarding();
     });
 
     // Setup animation
@@ -70,28 +76,28 @@ class _MediaButtonTestPageState extends State<MediaButtonTestPage>
     // _setupVoiceServiceListener();
 
     // Setup method call handler
-    _mediaChannel.setMethodCallHandler((call) async {
-      switch (call.method) {
-        case "button_down":
-          print("Button pressed down");
-          break;
+    // _mediaChannel.setMethodCallHandler((call) async {
+    //   switch (call.method) {
+    //     case "button_down":
+    //       print("Button pressed down");
+    //       break;
 
-        case "single_tap":
-          print("Single tap: ${call.arguments}");
-          final duration = call.arguments?['duration'] ?? 0;
-          _onSingleTap();
-          break;
+    //     case "single_tap":
+    //       print("Single tap: ${call.arguments}");
+    //       final duration = call.arguments?['duration'] ?? 0;
+    //       _onSingleTap();
+    //       break;
 
-        case "long_press":
-          print("Long press: ${call.arguments}");
-          final duration = call.arguments?['duration'] ?? 0;
-          _onLongPress();
-          break;
+    //     case "long_press":
+    //       print("Long press: ${call.arguments}");
+    //       final duration = call.arguments?['duration'] ?? 0;
+    //       _onLongPress();
+    //       break;
 
-        default:
-          print("Unknown method: ${call.method}");
-      }
-    });
+    //     default:
+    //       print("Unknown method: ${call.method}");
+    //   }
+    // });
   }
 
   Future<void> _checkAndShowOnboarding() async {
@@ -100,14 +106,17 @@ class _MediaButtonTestPageState extends State<MediaButtonTestPage>
         prefs.getBool('onboarding_completed') ?? false;
 
     if (!onboardingCompleted && mounted) {
-      await showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => OnboardingDialog(
-          onPlayTTS: _playTTS,
-          screen: "home",
-        ),
-      );
+      // await showDialog(
+      //   context: context,
+      //   barrierDismissible: false,
+      //   builder: (context) => OnboardingDialog(
+      //     onPlayTTS: _playTTS,
+      //     screen: "home",
+      //     language: language_status ? "English" : "ಕನ್ನಡ (Kannada)",
+      //     language_status: language_status,
+      //     onToggleLanguage: _toggleLanguage, // ✅ callback from parent
+      //   ),
+      // );
     }
   }
 
@@ -297,7 +306,7 @@ class _MediaButtonTestPageState extends State<MediaButtonTestPage>
               // Reset and show onboarding again
               final prefs = await SharedPreferences.getInstance();
               await prefs.setBool('onboarding_completed', false);
-              _checkAndShowOnboarding();
+              // _checkAndShowOnboarding();
             },
           ),
           IconButton(
@@ -330,14 +339,15 @@ class _MediaButtonTestPageState extends State<MediaButtonTestPage>
                     SizedBox(width: 6),
                     GestureDetector(
                       onTap: () async {
-                        await showDialog(
-                          context: context,
-                          barrierDismissible: false,
-                          builder: (context) => OnboardingDialog(
-                            onPlayTTS: _playTTS,
-                            screen: "practice_area",
-                          ),
-                        );
+                        // await showDialog(
+                        //   context: context,
+                        //   barrierDismissible: false,
+                        //   builder: (context) => OnboardingDialog(
+                        //     onPlayTTS: _playTTS,
+                        //     screen: "practice_area",
+                        //     language: "English",
+                        //   ),
+                        // );
                       },
                       child: Text(
                         "Show Tutorial",

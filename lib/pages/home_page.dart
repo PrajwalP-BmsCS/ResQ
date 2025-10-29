@@ -5,7 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:io';
 import 'package:http/http.dart' as http;
-import 'package:req_demo/pages/Flutter_STT/sts.dart';
+import 'package:req_demo/pages/Flutter_STT/english_stt.dart';
+import 'package:req_demo/pages/Flutter_STT/kannada_stt.dart';
+import 'package:req_demo/pages/Flutter_STT/language_translation.dart';
 import 'package:req_demo/pages/Flutter_TTS/tts.dart';
 import 'package:req_demo/pages/Navigation/nav_utility_functions.dart';
 import 'package:req_demo/pages/Navigation/navigation.dart';
@@ -14,8 +16,9 @@ import 'package:req_demo/pages/Object_Detection/object_detection.dart';
 import 'package:req_demo/pages/Scene%20Description/scene_description.dart';
 import 'package:req_demo/pages/Settings/practice.dart';
 import 'package:req_demo/pages/Settings/settings_page.dart';
-import 'package:req_demo/pages/app_settings/app_settings.dart';
+import 'package:req_demo/pages/Settings/app_settings.dart';
 import 'package:req_demo/pages/home_page.dart';
+import 'package:req_demo/pages/utils/mediaButton.dart';
 import 'package:req_demo/pages/utils/onboard.dart';
 import 'package:req_demo/pages/utils/util.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -56,21 +59,77 @@ class HomePageState extends State<HomePage>
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
 
+  // @override
+  // void initState() {
+  //   super.initState();
+
+  //   // To reset ONBOARDING
+  //   // resetOnboarding();
+
+  //   // Initialize service once
+  //   MediaButtonService().initialize();
+
+  //   // Set handlers for this page
+  //   MediaButtonService().setHandlers(
+  //     onSingleTap: (duration) => _onSingleTap(),
+  //     onLongPress: (duration) => _onLongPress(),
+  //     onButtonDown: () => print("Button down on HomePage"),
+  //   );
+
+  //   initAll();
+
+  //   // Show onboarding after the first frame is built
+  //   WidgetsBinding.instance.addPostFrameCallback((_) {
+  //     _checkAndShowOnboarding();
+  //   });
+
+  //   // Setup animation
+  //   _pulseController = AnimationController(
+  //     duration: const Duration(milliseconds: 1000),
+  //     vsync: this,
+  //   )..repeat(reverse: true);
+
+  //   _pulseAnimation = Tween<double>(begin: 1.0, end: 1.2).animate(
+  //     CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+  //   );
+
+  //   // Setup voice service listener for transcription
+  //   // _setupVoiceServiceListener();
+
+  //   // Setup method call handler
+  //   // _mediaChannel.setMethodCallHandler((call) async {
+  //   //   switch (call.method) {
+  //   //     case "button_down":
+  //   //       print("Button pressed down");
+  //   //       break;
+
+  //   //     case "single_tap":
+  //   //       print("Single tap: ${call.arguments}");
+  //   //       final duration = call.arguments?['duration'] ?? 0;
+  //   //       _onSingleTap();
+  //   //       break;
+
+  //   //     case "long_press":
+  //   //       print("Long press: ${call.arguments}");
+  //   //       final duration = call.arguments?['duration'] ?? 0;
+  //   //       _onLongPress();
+  //   //       break;
+
+  //   //     default:
+  //   //       print("Unknown method: ${call.method}");
+  //   //   }
+  //   // });
+  // }
+
+  late String preffered_lang = "";
   @override
   void initState() {
     super.initState();
 
-    // To reset ONBOARDING
-    resetOnboarding();
+    // ✅ 1. Setup media channel IMMEDIATELY
+    _setupMediaChannel();
 
-    initAll();
-
-    // Show onboarding after the first frame is built
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkAndShowOnboarding();
-    });
-
-    // Setup animation
+    // ✅ 2. Setup animation
     _pulseController = AnimationController(
       duration: const Duration(milliseconds: 1000),
       vsync: this,
@@ -80,38 +139,55 @@ class HomePageState extends State<HomePage>
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
 
-    // Setup voice service listener for transcription
-    // _setupVoiceServiceListener();
+    // ✅ 3. Initialize services
+    initAll();
 
-    // Setup method call handler
+    // ✅ 4. Show onboarding LAST
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkAndShowOnboarding();
+    });
+  }
+
+  void _setupMediaChannel() {
     _mediaChannel.setMethodCallHandler((call) async {
+      print("📱 [HomePage] Media event: ${call.method}");
+
       switch (call.method) {
         case "button_down":
-          print("Button pressed down");
+          print("🔽 Button down");
           break;
 
         case "single_tap":
-          print("Single tap: ${call.arguments}");
-          final duration = call.arguments?['duration'] ?? 0;
+          print("👆 Single tap: ${call.arguments}");
           _onSingleTap();
           break;
 
         case "long_press":
-          print("Long press: ${call.arguments}");
-          final duration = call.arguments?['duration'] ?? 0;
+          print("👆 Long press: ${call.arguments}");
           _onLongPress();
           break;
 
         default:
-          print("Unknown method: ${call.method}");
+          print("❓ Unknown: ${call.method}");
       }
+    });
+
+    print("✅ Media channel handler registered for HomePage");
+  }
+
+  bool language_status = true;
+
+  void _toggleLanguage() {
+    setState(() {
+      language_status = !language_status;
     });
   }
 
   Future<void> _checkAndShowOnboarding() async {
-    final prefs = await SharedPreferences.getInstance();
-    final bool onboardingCompleted =
-        prefs.getBool('onboarding_completed') ?? false;
+    store = await LocalStore.getInstance();
+    prefsMap = store.getGeneralPrefs();
+    final bool onboardingCompleted = prefsMap['onboarding_completed'] ?? false;
+    print("ONB $onboardingCompleted");
 
     if (!onboardingCompleted && mounted) {
       await showDialog(
@@ -120,6 +196,9 @@ class HomePageState extends State<HomePage>
         builder: (context) => OnboardingDialog(
           onPlayTTS: _playTTS,
           screen: "home",
+          language: language_status ? "English" : "ಕನ್ನಡ (Kannada)",
+          language_status: language_status,
+          onToggleLanguage: _toggleLanguage, // ✅ callback from parent
         ),
       );
     }
@@ -158,7 +237,9 @@ class HomePageState extends State<HomePage>
       _stopListening();
     } else {
       setState(() {
-        _statusMessage = 'Mic is not active. Long press to start listening.';
+        _statusMessage = checkLanguageCondition()
+            ? 'Mic is not active. Long press to start listening.'
+            : "ಮೈಕ್ ಸಕ್ರಿಯವಾಗಿಲ್ಲ. ಕೇಳಲು ಪ್ರಾರಂಭಿಸಲು ದೀರ್ಘವಾಗಿ ಒತ್ತಿರಿ.";
       });
     }
   }
@@ -169,30 +250,43 @@ class HomePageState extends State<HomePage>
   }
 
   String voiceText = "";
-  void _startListening() {
+  void _startListening() async {
     setState(() {
       _micStatus = MicStatus.listening;
-      _statusMessage = 'Listening... Speak now';
+      _statusMessage = checkLanguageCondition()
+          ? 'Listening... Speak now'
+          : "ಕೇಳುತ್ತಿದ್ದೇನೆ... ಈಗಲೇ ಮಾತನಾಡಿ";
       _transcribedText = '';
       _finalTranscript = '';
     });
 
     try {
-      VoiceService().startListening(onFinalResult: (text) {
-        print("Final recognized words: $text");
-        voiceText = text;
+      store = await LocalStore.getInstance();
 
-        // Update the transcribed text
-        if (voiceText.isNotEmpty) {
-          setState(() {
-            _transcribedText = voiceText;
+      prefsMap = store.getGeneralPrefs();
+
+      preffered_lang = prefsMap['lang'];
+
+      print("PREFE $preffered_lang");
+      VoiceService().startListening(
+          pref_lang: preffered_lang,
+          onFinalResult: (text) {
+            print("Final recognized words: $text");
+            voiceText = text;
+
+            // Update the transcribed text
+            if (voiceText.isNotEmpty) {
+              setState(() {
+                _transcribedText = voiceText;
+              });
+            }
           });
-        }
-      });
     } catch (e) {
       setState(() {
         _micStatus = MicStatus.error;
-        _statusMessage = 'Error starting mic: $e';
+        _statusMessage = checkLanguageCondition()
+            ? 'Error starting mic: $e'
+            : "ಮೈಕ್ ಪ್ರಾರಂಭಿಸುವಲ್ಲಿ ದೋಷ: $e";
       });
     }
   }
@@ -200,7 +294,9 @@ class HomePageState extends State<HomePage>
   Future<void> _stopListening() async {
     setState(() {
       _micStatus = MicStatus.processing;
-      _statusMessage = 'Processing...';
+      _statusMessage = checkLanguageCondition()
+          ? 'Processing...'
+          : 'ಪ್ರಕ್ರಿಯೆಗೊಳಿಸಲಾಗುತ್ತಿದೆ...';
     });
 
     try {
@@ -209,11 +305,23 @@ class HomePageState extends State<HomePage>
       _finalTranscript = _transcribedText;
 
       await Future.delayed(const Duration(milliseconds: 500));
-      print("Final Transcript_STOP: $_finalTranscript");
+
       if (_finalTranscript.isNotEmpty) {
         // Await the intent result
+
+        print("Final Transcript_STOP: $_finalTranscript");
+
+        String? translated_text;
+        if (preffered_lang == "ಕನ್ನಡ (Kannada)") {
+          translated_text = await TranslationService.translateWithMyMemory(
+              _finalTranscript, "kn|en");
+          print("TRANSLATED TEXT $translated_text");
+        }
+
         try {
-          final intent_result = await get_user_intent(voiceText);
+          final intent_result = (preffered_lang == "ಕನ್ನಡ (Kannada)")
+              ? await get_user_intent(translated_text!)
+              : await get_user_intent(_finalTranscript);
           print("Received intent result from API");
           print(intent_result);
 
@@ -223,24 +331,31 @@ class HomePageState extends State<HomePage>
           print("Intent Result: $intent_result");
         } catch (e) {
           print("Intent API error: $e");
-          await TTSManager()
-              .speak("Sorry for the inconvenience, Please Try Again!!");
+          await TTSManager().speak(checkLanguageCondition()
+              ? "Sorry for the inconvenience, Please Try Again!!"
+              : "ಅನಾನುಕೂಲತೆಗೆ ಕ್ಷಮಿಸಿ, ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ!!");
         }
 
         setState(() {
           _micStatus = MicStatus.idle;
-          _statusMessage = 'Tap and hold to start again.';
+          _statusMessage = checkLanguageCondition()
+              ? 'Tap and hold to start again.'
+              : 'ಮತ್ತೆ ಪ್ರಾರಂಭಿಸಲು ಟ್ಯಾಪ್ ಮಾಡಿ ಮತ್ತು ಹಿಡಿದುಕೊಳ್ಳಿ.';
         });
       } else {
         setState(() {
           _micStatus = MicStatus.idle;
-          _statusMessage = 'No speech detected. Try again.';
+          _statusMessage = checkLanguageCondition()
+              ? 'No speech detected. Try again.'
+              : 'ಯಾವುದೇ ಮಾತು ಪತ್ತೆಯಾಗಿಲ್ಲ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.';
         });
       }
     } catch (e) {
       setState(() {
         _micStatus = MicStatus.error;
-        _statusMessage = 'Error stopping mic: $e';
+        _statusMessage = checkLanguageCondition()
+            ? 'Error stopping mic: $e'
+            : 'ಮೈಕ್ ನಿಲ್ಲಿಸುವಲ್ಲಿ ದೋಷ: $e';
       });
     }
   }
@@ -334,6 +449,13 @@ class HomePageState extends State<HomePage>
 
     if (rawList != null) {
       setState(() {
+        preffered_lang = prefsMap['lang'] ?? "English";
+
+        if (preffered_lang != "English") {
+          _statusMessage = "ಕೇಳಲು ಪ್ರಾರಂಭಿಸಲು ಬಟನ್ ಒತ್ತಿ ಹಿಡಿದುಕೊಳ್ಳಿ...";
+        } else {
+          _statusMessage = 'Press and hold the button to start listening...';
+        }
         contactManager.contacts = rawList
             .map((e) => EmergencyContact.fromJson(jsonDecode(e)))
             .toList();
@@ -342,260 +464,39 @@ class HomePageState extends State<HomePage>
     }
   }
 
-/*
-  /// Main navigation function
-  void navigateToNextScreen(
-    String intent,
-    bool listen_status,
-    int contact_option,
-    bool want_to_call,
-    String? yesNoResponse,
-  ) async {
-    try {
-      print(
-          "🎯 Intent: $intent | Listen: $listen_status | Want Call: $want_to_call | Response: $yesNoResponse");
-
-      // Handle Yes/No responses
-      if (intent == "yes_no_response") {
-        _handleYesNoResponse(yesNoResponse);
-        return;
-      }
-
-      // Handle other intents only if not waiting for confirmation
-      if (_waitingForCallConfirmation) {
-        print(
-            "⚠️ Currently waiting for call confirmation, ignoring other intents");
-        return;
-      }
-
-      switch (intent) {
-        case "connect_glasses":
-          bool res = await checkConnectivity();
-          if (res) {
-            TTSManager().speak("Connecting to your glasses");
-            // Add your connection logic here
-          }
-          break;
-
-        case "scene_description":
-          TTSManager().speak("Navigating to scene description screen");
-          // Navigator.push(context, MaterialPageRoute(builder: (_) => SceneDescriptionScreen()));
-          break;
-
-        case "object_detection":
-          TTSManager().speak("Navigating to object detection screen");
-          // Navigator.push(context, MaterialPageRoute(builder: (_) => ObjectDetectionScreen()));
-          break;
-
-        case "ocr":
-          TTSManager().speak("Starting text recognition");
-          // Navigator.push(context, MaterialPageRoute(builder: (_) => OCRHomePage()));
-          break;
-
-        case "navigation":
-          TTSManager().speak("Navigating to navigation screen");
-          // Navigator.push(context, MaterialPageRoute(builder: (_) => WalkingRouteMapPage()));
-          break;
-
-        case "list_contacts":
-          _handleListContacts();
-          break;
-
-        case "call_contact":
-          _handleCallContact(listen_status, contact_option, want_to_call);
-          break;
-
-        default:
-          TTSManager().speak("Intent not recognized. Please try again.");
-      }
-    } catch (e) {
-      print("❌ Error in navigateToNextScreen: $e");
-      TTSManager().speak("An error occurred. Please try again.");
-    }
+  bool checkLanguageCondition() {
+    return prefsMap['lang'] == "English";
   }
 
-  /// Handle Yes/No responses
-  void _handleYesNoResponse(String? response) async {
-    if (_waitingForCallConfirmation) {
-      if (response == "yes") {
-        print("✅ User confirmed: Calling option $_pendingContactOption");
-        TTSManager().speak("Calling $_pendingContactName now");
-
-        await Future.delayed(Duration(seconds: 7), () {
-          _makePhoneCall(_pendingContactOption!);
-        });
-
-        // Reset state
-        _waitingForCallConfirmation = false;
-        _pendingContactOption = null;
-        _pendingContactName = null;
-      } else if (response == "no") {
-        print("❌ User declined call");
-        TTSManager().speak("Call cancelled. How can I help you?");
-
-        // Reset state
-        _waitingForCallConfirmation = false;
-        _pendingContactOption = null;
-        _pendingContactName = null;
-      }
-    } else {
-      // Handle generic yes/no without context
-      if (response == "yes") {
-        TTSManager().speak("Okay");
-      } else if (response == "no") {
-        TTSManager().speak("Understood");
-      }
-    }
-  }
-
-  /// Handle List Contacts intent
-  void _handleListContacts() async {
-    await initAll();
-
-    final contacts = contactManager.contacts;
-
-    print(contactManager.contacts);
-    print("IN HANDLES");
-
-    if (contacts.isEmpty) {
-      TTSManager().speak("You have no contacts saved.");
-      return;
-    }
-
-    StringBuffer contactList = StringBuffer();
-    contactList.write("Your contacts are: ");
-
-    for (int i = 0; i < contacts.length; i++) {
-      contactList.write("Option ${i + 1}: ${contacts[i].name}. ");
-    }
-
-    contactList.write("Please say the option number you want to call.");
-    TTSManager().speak(contactList.toString());
-  }
-
-  /// Handle Call Contact intent
-  void _handleCallContact(
-      bool listen_status, int contact_option, bool want_to_call) async {
-    await initAll();
-
+  Future<void> _makePhoneCall(
+      int contactOption, bool sos, String contactName, final contact) async {
     print(
-        "Handling call contact123: Option $contact_option | Want Call: $want_to_call | Listen: $listen_status");
-    if (contact_option == 0) {
-      print("⚠️ No contact option provided");
-      TTSManager().speak("Please specify which contact to call.");
-      return;
-    }
-
-    // Validate contact option
-    if (contact_option < 1 || contact_option > contactManager.contacts.length) {
-      print("❌ Invalid contact option: $contact_option");
-      TTSManager().speak("Invalid contact option. Please try again.");
-      return;
-    }
-
-    final contact = contactManager.contacts[contact_option - 1];
-
-    if (want_to_call) {
-      // User explicitly wants to call
-      print("🔴 Direct call to option $contact_option: ${contact.name}");
-      TTSManager().speak("Calling ${contact.name} now");
-
-      await Future.delayed(Duration(seconds: 1), () {
-        _makePhoneCall(contact_option);
-      });
-    } else if (listen_status) {
-      // Ask for confirmation
-      print("❓ Asking for confirmation before calling option $contact_option");
-      _waitingForCallConfirmation = true;
-      _pendingContactOption = contact_option;
-      _pendingContactName = contact.name;
-
-      TTSManager().speak(
-        "Do you want to call ${contact.name} at ${contact.phone}? Please say yes or no.",
-      );
-    } else {
-      // Default: ask for confirmation
-      print("❓ Default: Asking for confirmation");
-      _waitingForCallConfirmation = true;
-      _pendingContactOption = contact_option;
-
-      _pendingContactName = contact.name;
-
-      TTSManager().speak(
-        "Do you want to call ${contact.name}? Please say yes or no.",
-      );
-    }
-  }
-
-  /// Make the actual phone call
-  // Future<void> _makePhoneCall(int contactOption) async {
-  //   try {
-  //     if (contactOption < 1 || contactOption > contactManager.contacts.length) {
-  //       TTSManager().speak("Invalid contact option.");
-  //       return;
-  //     }
-
-  //     final contact = contactManager.contacts[contactOption - 1];
-  //     final phoneNumber = contact.phone.replaceAll(RegExp(r'[^\d+]'), '');
-
-  //     print("Making call to ${phoneNumber.length} via SOS method");
-
-  //     if (phoneNumber.isEmpty) {
-  //       TTSManager().speak("Phone number not available for this contact.");
-  //       return;
-  //     }
-  //     // try {
-  //     //   if (contactOption < 1 || contactOption > contactManager.contacts.length) {
-  //     //     TTSManager().speak("Invalid contact option.");
-  //     //     return;
-  //     //   }
-
-  //     //   final contact = contactManager.contacts[contactOption - 1];
-  //     //   final phoneNumber = contact.phone.replaceAll(RegExp(r'[^\d+]'), '');
-
-  //     //   if (phoneNumber.isEmpty) {
-  //     //     TTSManager().speak("Phone number not available for this contact.");
-  //     //     return;
-  //     //   }
-
-  //     final Uri launchUri = Uri(scheme: 'tel', path: phoneNumber);
-
-  //     if (await canLaunchUrl(launchUri)) {
-  //       await launchUrl(launchUri);
-  //       print("✅ Call initiated to ${contact.name}");
-  //     } else {
-  //       TTSManager().speak("Could not make the call. Please try again.");
-  //     }
-  //   } catch (e) {
-  //     print("❌ Error making call: $e");
-  //     TTSManager().speak("An error occurred while making the call.");
-  //   }
-  // }
-
-
-*/
-  Future<void> _makePhoneCall(int contactOption, bool sos) async {
+        "CALLOP $contactOption | sos: $sos | conname $contactName | finalcon:$contact");
     try {
-      if (contactOption < 1 || contactOption > contactManager.contacts.length) {
-        TTSManager().speak("Invalid contact option.");
-        return;
-      }
-
-      final contact = contactManager.contacts[contactOption - 1];
       final phoneNumber = contact.phone.replaceAll(RegExp(r'[^\d+]'), '');
 
       if (sos) {
-        await TTSManager().speak("Calling ${contact.name}");
+        String s = "Calling";
+        if (!checkLanguageCondition()) {
+          s = "ಕರೆ ಮಾಡಲಾಗುತ್ತಿದೆ";
+          await TTSManager().speak("${contact.name} ಇಗೆ ${s}");
+        } else {
+          await TTSManager().speak("Calling ${contact.name}");
+        }
       }
 
       if (phoneNumber.isEmpty) {
-        TTSManager().speak("Phone number not available for this contact.");
+        TTSManager().speak(checkLanguageCondition()
+            ? "Phone number not available for this contact."
+            : "ಈ ಸಂಪರ್ಕಕ್ಕೆ ಫೋನ್ ಸಂಖ್ಯೆ ಲಭ್ಯವಿಲ್ಲ.");
         return;
       }
 
       // ✅ Request runtime permission
       if (await Permission.phone.request().isDenied) {
-        TTSManager().speak("Please enable phone permission to make a call.");
+        TTSManager().speak(checkLanguageCondition()
+            ? "Please enable phone permission to make a call."
+            : "ಕರೆ ಮಾಡಲು ದಯವಿಟ್ಟು ಫೋನ್ ಅನುಮತಿಯನ್ನು ಸಕ್ರಿಯಗೊಳಿಸಿ.");
         return;
       }
 
@@ -612,7 +513,9 @@ class HomePageState extends State<HomePage>
       print("✅ Native call requested to ${contact.name} ($phoneNumber)");
     } catch (e) {
       print("❌ Error making call: $e");
-      TTSManager().speak("An error occurred while making the call.");
+      TTSManager().speak(checkLanguageCondition()
+          ? "An error occurred while making the call."
+          : "ಕರೆ ಮಾಡುವಾಗ ದೋಷ ಸಂಭವಿಸಿದೆ.");
     }
   }
 
@@ -620,15 +523,29 @@ class HomePageState extends State<HomePage>
   bool _emergencyInProgress = false;
   bool _cancelEmergency = false;
   Timer? _emergencyListeningTimer;
+  Map numbersMap = {
+    10: "ಹತ್ತು",
+    9: "ಒಂಬತ್ತು",
+    8: "ಎಂಟು",
+    7: "ಏಳು",
+    6: "ಆರು",
+    5: "ಐದು",
+    4: "ನಾಲ್ಕು",
+    3: "ಮೂರು",
+    2: "ಎರಡು",
+    1: "ಒಂದು"
+  };
 
   /// Emergency countdown with continuous cancel listening
   Future<bool> setCounter() async {
     _cancelEmergency = false;
     _emergencyInProgress = true;
+    final seconds = 5;
 
     // Speak initial message
-    await TTSManager().speak(
-        "Emergency feature has been enabled. It will trigger in 10 seconds. Say cancel to stop.");
+    await TTSManager().speak(checkLanguageCondition()
+        ? "Emergency feature has been enabled. It will start in $seconds seconds. Say cancel to stop."
+        : "ತುರ್ತು ವೈಶಿಷ್ಟ್ಯವನ್ನು ಸಕ್ರಿಯಗೊಳಿಸಲಾಗಿದೆ. ಇದು $seconds ಸೆಕೆಂಡುಗಳಲ್ಲಿ ಆರಂಭವಾಗುತ್ತದೆ. ನಿಲ್ಲಿಸಲು Cancel ಎಂದು ಹೇಳಿ.");
 
     // Wait for TTS to finish before starting listening
     await Future.delayed(const Duration(milliseconds: 500));
@@ -637,21 +554,29 @@ class HomePageState extends State<HomePage>
     _startContinuousEmergencyListener();
 
     // Countdown loop
-    for (int i = 10; i > 0; i--) {
+    for (int i = seconds; i > 0; i--) {
       if (_cancelEmergency) {
         await _stopEmergencyListener();
-        await TTSManager().speak("Emergency has been cancelled.");
+        await TTSManager().speak(checkLanguageCondition()
+            ? "Emergency feature has been cancelled."
+            : "ತುರ್ತು ವೈಶಿಷ್ಟ್ಯವನ್ನು ರದ್ದುಗೊಳಿಸಲಾಗಿದೆ.");
         debugPrint("❌ Emergency cancelled by user.");
         _emergencyInProgress = false;
 
         setState(() {
           _micStatus = MicStatus.idle;
-          _statusMessage = 'Emergency cancelled. Press to start listening.';
+          _statusMessage = checkLanguageCondition()
+              ? 'Emergency cancelled. Press to start listening.'
+              : 'ತುರ್ತು ಪರಿಸ್ಥಿತಿ ರದ್ದುಗೊಂಡಿದೆ. ಕೇಳಲು ಪ್ರಾರಂಭಿಸಲು ಒತ್ತಿರಿ.';
         });
         return false;
       }
+      if (checkLanguageCondition()) {
+        await TTSManager().speak("$i");
+      } else {
+        await TTSManager().speak("${numbersMap[i]}");
+      }
 
-      await TTSManager().speak("$i");
       debugPrint("⏳ Countdown: $i");
 
       // Give time for user to say "cancel" during countdown
@@ -661,25 +586,33 @@ class HomePageState extends State<HomePage>
     // Final check before triggering
     if (_cancelEmergency) {
       await _stopEmergencyListener();
-      await TTSManager().speak("Emergency has been cancelled.");
+      await TTSManager().speak(checkLanguageCondition()
+          ? "Emergency feature has been cancelled."
+          : "ತುರ್ತು ವೈಶಿಷ್ಟ್ಯವನ್ನು ರದ್ದುಗೊಳಿಸಲಾಗಿದೆ.");
       _emergencyInProgress = false;
 
       setState(() {
         _micStatus = MicStatus.idle;
-        _statusMessage = 'Emergency cancelled.';
+        _statusMessage = checkLanguageCondition()
+            ? 'Emergency feature cancelled.'
+            : 'ತುರ್ತು ವೈಶಿಷ್ಟ್ಯವನ್ನು ರದ್ದುಗೊಳಿಸಲಾಗಿದೆ.';
       });
       return false;
     }
 
     await _stopEmergencyListener();
-    await TTSManager().speak("Triggering emergency action now.");
+    await TTSManager().speak(checkLanguageCondition()
+        ? "Starting emergency action now."
+        : "ಈಗ ತುರ್ತು ಕ್ರಮ ಕೈಗೊಳ್ಳಲಾಗುತ್ತಿದೆ.");
     await _triggerSOS();
 
     _emergencyInProgress = false;
 
     setState(() {
       _micStatus = MicStatus.idle;
-      _statusMessage = 'Emergency action completed.';
+      _statusMessage = checkLanguageCondition()
+          ? 'Emergency action completed.'
+          : 'ತುರ್ತು ಕ್ರಮ ಪೂರ್ಣಗೊಂಡಿದೆ.';
     });
 
     return true;
@@ -689,7 +622,9 @@ class HomePageState extends State<HomePage>
   void _startContinuousEmergencyListener() {
     setState(() {
       _micStatus = MicStatus.listening;
-      _statusMessage = 'Say "CANCEL" to stop emergency';
+      _statusMessage = checkLanguageCondition()
+          ? 'Say "CANCEL" to stop emergency'
+          : 'ತುರ್ತು ಪರಿಸ್ಥಿತಿ ನಿಲ್ಲಿಸಲು "CANCEL" ಎಂದು ಹೇಳಿ';
     });
 
     _restartEmergencyListener();
@@ -719,7 +654,9 @@ class HomePageState extends State<HomePage>
 
             setState(() {
               _micStatus = MicStatus.processing;
-              _statusMessage = 'Cancelling emergency...';
+              _statusMessage = checkLanguageCondition()
+                  ? 'Cancelling emergency...'
+                  : 'ತುರ್ತು ಪರಿಸ್ಥಿತಿ ರದ್ದು...';
             });
             return;
           }
@@ -756,7 +693,9 @@ class HomePageState extends State<HomePage>
 
       setState(() {
         _micStatus = MicStatus.idle;
-        _statusMessage = 'Press and hold to start listening...';
+        _statusMessage = checkLanguageCondition()
+            ? 'Press and hold to start listening...'
+            : 'ಕೇಳಲು ಪ್ರಾರಂಭಿಸಲು ಒತ್ತಿ ಹಿಡಿದುಕೊಳ್ಳಿ...';
       });
     } catch (e) {
       debugPrint("❌ Error stopping emergency listener: $e");
@@ -767,7 +706,9 @@ class HomePageState extends State<HomePage>
   void _startContinuousEmergencyListenerWithTimer() {
     setState(() {
       _micStatus = MicStatus.listening;
-      _statusMessage = 'Say "CANCEL" to stop emergency';
+      _statusMessage = checkLanguageCondition()
+          ? 'Say "CANCEL" to stop emergency'
+          : 'ತುರ್ತು ಪರಿಸ್ಥಿತಿ ನಿಲ್ಲಿಸಲು "CANCEL" ಎಂದು ಹೇಳಿ';
     });
 
     // Start initial listener
@@ -810,7 +751,9 @@ class HomePageState extends State<HomePage>
 
             setState(() {
               _micStatus = MicStatus.processing;
-              _statusMessage = 'Cancelling emergency...';
+              _statusMessage = checkLanguageCondition()
+                  ? 'Cancelling emergency...'
+                  : 'ತುರ್ತು ಪರಿಸ್ಥಿತಿ ರದ್ದು...';
             });
           }
         },
@@ -829,6 +772,7 @@ class HomePageState extends State<HomePage>
       intent_result['want_to_call'] ?? false,
       intent_result['want_to_share'] ?? false,
       intent_result['response'],
+      intent_result['contact_name'] ?? '',
     );
   }
 
@@ -839,14 +783,15 @@ class HomePageState extends State<HomePage>
     bool want_to_call,
     bool want_to_share,
     String? yesNoResponse,
+    String contactName,
   ) async {
     try {
       print(
-          "🎯 Intent: $intent | Listen: $listen_status | Want Call: $want_to_call | Want Share: $want_to_share | Response: $yesNoResponse");
+          "🎯 Intent: $intent | Listen: $listen_status | Want Call: $want_to_call | Want Share: $want_to_share | Response: $yesNoResponse | Contact Name: $contactName");
 
       // Handle Yes/No responses
       if (intent == "yes_no_response") {
-        _handleYesNoResponse(yesNoResponse);
+        _handleYesNoResponse(yesNoResponse, contactName);
         return;
       }
 
@@ -860,8 +805,9 @@ class HomePageState extends State<HomePage>
         } else if (_waitingForShareConfirmation) {
           s = "share location";
         }
-        TTSManager().speak(
-            "Currently waiting for your confirmation, for earlier $s request. Please tell No if you want to cancel the request.");
+        TTSManager().speak(checkLanguageCondition()
+            ? "Currently waiting for your confirmation, for earlier $s request. Please tell No if you want to cancel the request."
+            : "ನಿಮ್ಮ ದೃಢೀಕರಣಕ್ಕಾಗಿ ಕಾಯುತ್ತಿದ್ದೇನೆ, ಹಿಂದಿನ $s ವಿನಂತಿಗಾಗಿ. ನೀವು ವಿನಂತಿಯನ್ನು ರದ್ದುಗೊಳಿಸಲು ಬಯಸಿದರೆ ದಯವಿಟ್ಟು ಇಲ್ಲ ಎಂದು ಹೇಳಿ.");
         return;
       }
 
@@ -870,40 +816,56 @@ class HomePageState extends State<HomePage>
       switch (intent) {
         case "connect_glasses":
           if (res) {
-            TTSManager().speak("Connecting to your glasses");
-            await Future.delayed(Duration(seconds: 3), () {
-              TTSManager()
-                  .speak("Your glasses has been successfully connected");
-            });
+            TTSManager().speak(checkLanguageCondition()
+                ? "Connecting to your glasse \n\nYour glasses has been successfully connected."
+                : "ಕನ್ನಡಕಗಳಿಗೆ ಸಂಪರ್ಕಿಸಲಾಗುತ್ತಿದೆ. \n\n\n\n ನಿಮ್ಮ ಕನ್ನಡಕವನ್ನು ಯಶಸ್ವಿಯಾಗಿ ಜೋಡಿಸಲಾಗಿದೆ");
           }
           break;
 
         case "scene_description":
           if (res) {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => SceneDescriptionScreen()));
-            await TTSManager().speak("Starting to scene description now..");
+            // Navigator.push(
+            //     context,
+            //     MaterialPageRoute(
+            //         builder: (context) => SceneDescriptionScreen(language: preffered_lang ?? "English",)));
+            await TTSManager().speak(checkLanguageCondition()
+                ? "Starting to scene description now.."
+                : "ಈಗ ದೃಶ್ಯ ವಿವರಣೆಯನ್ನು ಪ್ರಾರಂಭಿಸುತ್ತಿದ್ದೇನೆ..");
           }
           break;
 
         case "object_detection":
           if (res) {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => ObjectDetectionScreen()));
-            await TTSManager().speak("Detecting objects");
+            // Navigator.push(
+            //     context,
+            //     MaterialPageRoute(
+            //         builder: (context) => ObjectDetectionScreen(language: preffered_lang ?? "English",)));
+            await TTSManager().speak(checkLanguageCondition()
+                ? "Detecting objects"
+                : "ವಸ್ತುಗಳನ್ನು ಪತ್ತೆಹಚ್ಚುವುದು");
           }
 
           break;
 
         case "ocr":
           if (res) {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => OCRHomePage()));
-            await TTSManager().speak("Starting text recognition");
+            // Navigator.push(context,
+            //     MaterialPageRoute(builder: (context) => OCRHomePage(language: preffered_lang ?? "English",)));
+            await TTSManager().speak(checkLanguageCondition()
+                ? "Starting text recognition"
+                : "ಪಠ್ಯ ಗುರುತಿಸುವಿಕೆಯನ್ನು ಪ್ರಾರಂಭಿಸಲಾಗುತ್ತಿದೆ");
           }
           break;
 
         case "navigation":
-          TTSManager().speak("Navigating to navigation screen");
-          Navigator.push(context,
-              MaterialPageRoute(builder: (context) => WalkingRouteMapPage()));
+          TTSManager().speak(checkLanguageCondition()
+              ? "Navigating to navigation screen"
+              : "ನ್ಯಾವಿಗೇಷನ್ ಸ್ಕ್ರೀನ್‌ಗೆ ನ್ಯಾವಿಗೇಟ್ ಮಾಡಲಾಗುತ್ತಿದೆ");
+          Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (context) => WalkingRouteMapPage(
+                      language: preffered_lang ?? "English")));
           break;
 
         case "list_contacts":
@@ -911,7 +873,8 @@ class HomePageState extends State<HomePage>
           break;
 
         case "call_contact":
-          _handleCallContact(listen_status, contact_option, want_to_call);
+          _handleCallContact(
+              listen_status, contact_option, want_to_call, contactName);
           break;
 
         case "list_share_contacts":
@@ -919,7 +882,8 @@ class HomePageState extends State<HomePage>
           break;
 
         case "share_location":
-          _handleShareLocation(listen_status, contact_option, want_to_share);
+          _handleShareLocation(
+              listen_status, contact_option, want_to_share, contactName);
           break;
 
         case "emergency":
@@ -931,29 +895,37 @@ class HomePageState extends State<HomePage>
               debugPrint("❌ Emergency was cancelled");
             }
           } else {
-            TTSManager().speak("Emergency already in progress.");
+            TTSManager().speak(checkLanguageCondition()
+                ? "Emergency feature already in progress."
+                : "ತುರ್ತು ವೈಶಿಷ್ಟ್ಯವು ಈಗಾಗಲೇ ಪ್ರಗತಿಯಲ್ಲಿದೆ.");
           }
 
           break;
 
         default:
-          TTSManager().speak("Intent not recognized. Please try again.");
+          TTSManager().speak(checkLanguageCondition()
+              ? "Intent not recognized. Please try again."
+              : "ಉದ್ದೇಶವನ್ನು ಗುರುತಿಸಲಾಗಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.");
       }
     } catch (e) {
       print("❌ Error in navigateToNextScreen: $e");
-      TTSManager().speak("An error occurred. Please try again.");
+      TTSManager().speak(checkLanguageCondition()
+          ? "An error occurred. Please try again."
+          : "ದೋಷ ಸಂಭವಿಸಿದೆ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.");
     }
   }
 
   /// Handle Yes/No responses for both call and share
-  void _handleYesNoResponse(String? response) async {
+  void _handleYesNoResponse(String? response, String contactName) async {
     if (_waitingForCallConfirmation) {
       if (response == "yes") {
         print("✅ User confirmed: Calling option $_pendingContactOption");
-        TTSManager().speak("Calling $_pendingContactName now");
+        await TTSManager().speak(checkLanguageCondition()
+            ? "Calling $_pendingContactName now"
+            : "ಈಗ $_pendingContactName ಗೆ ಕರೆ ಮಾಡಲಾಗುತ್ತಿದೆ");
 
         await Future.delayed(Duration(seconds: 1), () {
-          _makePhoneCall(_pendingContactOption!, false);
+          _makePhoneCall(_pendingContactOption!, false, contactName, {});
         });
 
         // Reset state
@@ -962,7 +934,9 @@ class HomePageState extends State<HomePage>
         _pendingContactName = null;
       } else if (response == "no") {
         print("❌ User declined call");
-        TTSManager().speak("Call cancelled. How can I help you?");
+        TTSManager().speak(checkLanguageCondition()
+            ? "Call cancelled. How can I help you?"
+            : "ಕರೆ ರದ್ದುಗೊಂಡಿದೆ. ನಾನು ನಿಮಗೆ ಹೇಗೆ ಸಹಾಯ ಮಾಡಲಿ?");
 
         // Reset state
         _waitingForCallConfirmation = false;
@@ -973,11 +947,12 @@ class HomePageState extends State<HomePage>
       if (response == "yes") {
         print(
             "✅ User confirmed: Sharing location with option $_pendingShareContactOption");
-        TTSManager()
-            .speak("Sharing your location with $_pendingShareContactName now");
+        TTSManager().speak(checkLanguageCondition()
+            ? "Sharing your location with $_pendingShareContactName now"
+            : "ನಿಮ್ಮ ಸ್ಥಳವನ್ನು $_pendingShareContactName ರೊಂದಿಗೆ ಹಂಚಿಕೊಳ್ಳಲಾಗುತ್ತಿದೆ.");
 
         await Future.delayed(Duration(seconds: 1), () {
-          _shareLocationWithContact(_pendingShareContactOption!);
+          _shareLocationWithContact(_pendingShareContactOption!, false, "", {});
         });
 
         // Reset state
@@ -986,7 +961,9 @@ class HomePageState extends State<HomePage>
         _pendingShareContactName = null;
       } else if (response == "no") {
         print("❌ User declined share");
-        TTSManager().speak("Location sharing cancelled. How can I help you?");
+        TTSManager().speak(checkLanguageCondition()
+            ? "Location sharing cancelled. How can I help you?"
+            : "ಸ್ಥಳ ಹಂಚಿಕೆ ರದ್ದುಗೊಂಡಿದೆ. ನಾನು ನಿಮಗೆ ಹೇಗೆ ಸಹಾಯ ಮಾಡಬಹುದು?");
 
         // Reset state
         _waitingForShareConfirmation = false;
@@ -996,9 +973,10 @@ class HomePageState extends State<HomePage>
     } else {
       // Handle generic yes/no without context
       if (response == "yes") {
-        TTSManager().speak("Okay");
+        TTSManager().speak(checkLanguageCondition() ? "Okay" : "ಸರಿ");
       } else if (response == "no") {
-        TTSManager().speak("Understood");
+        TTSManager()
+            .speak(checkLanguageCondition() ? "Understood" : "ಅರ್ಥವಾಯಿತು");
       }
     }
   }
@@ -1014,24 +992,31 @@ class HomePageState extends State<HomePage>
     print("IN HANDLES");
 
     if (callContacts.isEmpty) {
-      TTSManager().speak("You have no contacts saved.");
+      TTSManager().speak(checkLanguageCondition()
+          ? "You have no contacts saved."
+          : "ನೀವು ಯಾವುದೇ ಸಂಪರ್ಕಗಳನ್ನು ಉಳಿಸಿಕೊಂಡಿಲ್ಲ.");
       return;
     }
 
     StringBuffer contactList = StringBuffer();
-    contactList.write("Your contacts are: ");
+    contactList.write(
+        checkLanguageCondition() ? "Your contacts are: " : "ನಿಮ್ಮ ಸಂಪರ್ಕಗಳು: ");
 
     for (int i = 0; i < callContacts.length; i++) {
-      contactList.write("Option ${i + 1}: ${callContacts[i].name}. ");
+      contactList.write(checkLanguageCondition()
+          ? "Option ${i + 1}: ${callContacts[i].name}. "
+          : "ಆಯ್ಕೆ ${i + 1}: ${callContacts[i].name}. ");
     }
 
-    contactList.write("Please say the option number you want to call.");
+    contactList.write(checkLanguageCondition()
+        ? "Please say the option number you want to call."
+        : "ದಯವಿಟ್ಟು ನೀವು ಕರೆ ಮಾಡಲು ಬಯಸುವ ಆಯ್ಕೆ ಸಂಖ್ಯೆಯನ್ನು ಹೇಳಿ.");
     TTSManager().speak(contactList.toString());
   }
 
   /// Handle Call Contact intent
-  void _handleCallContact(
-      bool listen_status, int contact_option, bool want_to_call) async {
+  void _handleCallContact(bool listen_status, int contact_option,
+      bool want_to_call, String contactName) async {
     await initAll();
 
     final contacts = contactManager.contacts;
@@ -1039,29 +1024,56 @@ class HomePageState extends State<HomePage>
         contacts.where((c) => c.allowCall == true).toList();
 
     print(
-        "Handling call contact: Option $contact_option | Want Call: $want_to_call | Listen: $listen_status");
+        "Handling call contact: Option $contact_option | Want Call: $want_to_call | Listen: $listen_status | ContcNmae: $contactName");
 
-    if (contact_option == 0) {
+    if (contact_option == 0 && contactName.isEmpty) {
       print("⚠️ No contact option provided");
-      TTSManager().speak("Please specify which contact to call.");
+      TTSManager().speak(checkLanguageCondition()
+          ? "Please specify which contact to call."
+          : "ದಯವಿಟ್ಟು ಯಾವ ಸಂಪರ್ಕಕ್ಕೆ ಕರೆ ಮಾಡಬೇಕೆಂದು ನಿರ್ದಿಷ್ಟಪಡಿಸಿ.");
       return;
     }
 
     // Validate contact option
-    if (contact_option < 1 || contact_option > contactManager.contacts.length) {
+    if ((contact_option < 1 ||
+            contact_option > contactManager.contacts.length) &&
+        contactName.isEmpty) {
       print("❌ Invalid contact option: $contact_option");
-      TTSManager().speak("Invalid contact option. Please try again.");
+      TTSManager().speak(checkLanguageCondition()
+          ? "Invalid contact option. Please try again."
+          : "ಸಂಪರ್ಕ ಆಯ್ಕೆ ಅಮಾನ್ಯವಾಗಿದೆ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.");
       return;
     }
 
-    final contact = locationContacts[contact_option - 1];
+    // for (var i in contacts) {
+    //   print("${i.name.toLowerCase().trim().length}");
+    // }
+    // print("COPT ${contactName.toLowerCase().length}");
+    final contact;
+    if (contactName.isNotEmpty) {
+      contact_option = locationContacts.indexWhere((contact) =>
+          contact.name.toLowerCase().trim() == contactName.toLowerCase());
+      print("COPT $contact_option");
+
+      if (contact_option == -1) {
+        await TTSManager().speak(checkLanguageCondition()
+            ? "The contact you told is not available, please say again"
+            : "ನೀವು ಹೇಳಿದ ಸಂಪರ್ಕ ಲಭ್ಯವಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೊಮ್ಮೆ ಹೇಳಿ.");
+        return;
+      }
+      contact = locationContacts[contact_option];
+    } else {
+      contact = locationContacts[contact_option - 1];
+    }
 
     if (want_to_call) {
       print("🔴 Direct call to option $contact_option: ${contact.name}");
-      TTSManager().speak("Calling ${contact.name} now");
+      TTSManager().speak(checkLanguageCondition()
+          ? "Calling ${contact.name} now"
+          : "ಈಗ ${contact.name} ಗೆ ಕರೆ ಮಾಡಲಾಗುತ್ತಿದೆ");
 
       await Future.delayed(Duration(seconds: 2), () {
-        _makePhoneCall(contact_option, false);
+        _makePhoneCall(contact_option, false, contactName, contact);
       });
     } else if (listen_status) {
       print("❓ Asking for confirmation before calling option $contact_option");
@@ -1070,7 +1082,9 @@ class HomePageState extends State<HomePage>
       _pendingContactName = contact.name;
 
       TTSManager().speak(
-        "Do you want to call ${contact.name} at ${contact.phone}? Please say yes or no.",
+        checkLanguageCondition()
+            ? "Do you want to call ${contact.name} at ${contact.phone}? Please say yes or no."
+            : "ನೀವು ${contact.name} ಕರೆ ಮಾಡಲು ಬಯಸುವಿರಾ? \n ದಯವಿಟ್ಟು ಹೇಳಿ yes ಅಥವಾ no.",
       );
     } else {
       print("❓ Default: Asking for confirmation");
@@ -1079,7 +1093,9 @@ class HomePageState extends State<HomePage>
       _pendingContactName = contact.name;
 
       TTSManager().speak(
-        "Do you want to call ${contact.name}? Please say yes or no.",
+        checkLanguageCondition()
+            ? "Do you want to call ${contact.name}? Please say yes or no."
+            : "ನೀವು ${contact.name} ಕರೆ ಮಾಡಲು ಬಯಸುವಿರಾ? \n ದಯವಿಟ್ಟು ಹೇಳಿ yes ಅಥವಾ no.",
       );
     }
   }
@@ -1094,24 +1110,32 @@ class HomePageState extends State<HomePage>
     print("Listing contacts for sharing");
 
     if (locationContacts.isEmpty) {
-      TTSManager().speak("You have no contacts saved.");
+      TTSManager().speak(checkLanguageCondition()
+          ? "You have no contacts saved."
+          : "ನೀವು ಯಾವುದೇ ಸಂಪರ್ಕಗಳನ್ನು ಉಳಿಸಿಕೊಂಡಿಲ್ಲ.");
       return;
     }
 
     StringBuffer contactList = StringBuffer();
-    contactList.write("Your contacts are: ");
+    contactList.write(
+        checkLanguageCondition() ? "Your contacts are: " : "ನಿಮ್ಮ ಸಂಪರ್ಕಗಳು: ");
 
     for (int i = 0; i < locationContacts.length; i++) {
-      contactList.write("Option ${i + 1}: ${locationContacts[i].name}. ");
+      contactList.write(checkLanguageCondition()
+          ? "Option ${i + 1}: ${locationContacts[i].name}. "
+          : "ಆಯ್ಕೆ ${i + 1}: ${locationContacts[i].name}. ");
     }
 
-    contactList.write("Please say the option number.");
+    contactList.write(checkLanguageCondition()
+        ? "Please say the option number you want to share."
+        : "ದಯವಿಟ್ಟು ನಿಮ್ಮ ಸ್ಥಳವನ್ನು ಹಂಚಿಕೊಳ್ಳಲು ಬಯಸುವ ಆಯ್ಕೆಯನ್ನು ಹೇಳಿ");
+
     TTSManager().speak(contactList.toString());
   }
 
   /// Handle Share Location intent
-  void _handleShareLocation(
-      bool listen_status, int contact_option, bool want_to_share) async {
+  void _handleShareLocation(bool listen_status, int contact_option,
+      bool want_to_share, String contactName) async {
     await initAll();
 
     final contacts = contactManager.contacts;
@@ -1120,50 +1144,49 @@ class HomePageState extends State<HomePage>
     print(
         "Handling share location: Option $contact_option | Want Share: $want_to_share | Listen: $listen_status");
 
-    // Handle share with all contacts
-    // if (contact_option == -1) {
-    //   if (want_to_share) {
-    //     print("🌍 Sharing location with all contacts");
-    //     TTSManager().speak("Sharing your location with all contacts now");
-
-    //     await Future.delayed(Duration(seconds: 1), () {
-    //       _shareLocationWithAll();
-    //     });
-    //   } else {
-    //     print("❓ Asking for confirmation before sharing with all");
-    //     _waitingForShareConfirmation = true;
-    //     _pendingShareContactOption = -1;
-    //     _pendingShareContactName = "all contacts";
-
-    //     TTSManager().speak(
-    //       "Do you want to share your location with all contacts? Please say yes or no.",
-    //     );
-    //   }
-    //   return;
-    // }
-
-    if (contact_option == 0) {
+    if (contact_option == 0 && contactName.isEmpty) {
       print("⚠️ No contact option provided");
-      TTSManager()
-          .speak("Please specify which contact to share your location with.");
+      TTSManager().speak(checkLanguageCondition()
+          ? "Please specify which contact to share your location with."
+          : "ನಿಮ್ಮ ಸ್ಥಳವನ್ನು ಯಾವ ಸಂಪರ್ಕದೊಂದಿಗೆ ಹಂಚಿಕೊಳ್ಳಬೇಕೆಂದು ದಯವಿಟ್ಟು ನಿರ್ದಿಷ್ಟಪಡಿಸಿ.");
       return;
     }
 
     // Validate contact option
-    if (contact_option < 1 || contact_option > contactManager.contacts.length) {
+    if ((contact_option < 1 ||
+            contact_option > contactManager.contacts.length) &&
+        contactName.isEmpty) {
       print("❌ Invalid contact option: $contact_option");
-      TTSManager().speak("Invalid contact option. Please try again.");
+      TTSManager().speak(checkLanguageCondition()
+          ? "Invalid contact option. Please try again."
+          : "ಸಂಪರ್ಕ ಆಯ್ಕೆ ಅಮಾನ್ಯವಾಗಿದೆ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.");
       return;
     }
 
-    final contact = locationContacts[contact_option - 1];
+    final contact;
+    if (contactName.isNotEmpty) {
+      contact_option = locationContacts.indexWhere((contact) =>
+          contact.name.toLowerCase().trim() == contactName.toLowerCase());
+      print("COPT $contact_option");
+      if (contact_option == -1) {
+        await TTSManager().speak(checkLanguageCondition()
+            ? "The contact you told is not available, please say again"
+            : "ನೀವು ಹೇಳಿದ ಸಂಪರ್ಕ ಲಭ್ಯವಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೊಮ್ಮೆ ಹೇಳಿ.");
+        return;
+      }
+      contact = locationContacts[contact_option];
+    } else {
+      contact = locationContacts[contact_option - 1];
+    }
 
     if (want_to_share) {
       print("🌍 Direct share to option $contact_option: ${contact.name}");
-      TTSManager().speak("Sharing your location with ${contact.name} now");
+      TTSManager().speak(checkLanguageCondition()
+          ? "Sharing your location with ${contact.name} now"
+          : "ನಿಮ್ಮ ಸ್ಥಳವನ್ನು ${contact.name} ನೊಂದಿಗೆ ಹಂಚಿಕೊಳ್ಳಲಾಗುತ್ತಿದೆ");
 
       await Future.delayed(Duration(seconds: 1), () {
-        _shareLocationWithContact(contact_option);
+        _shareLocationWithContact(contact_option, false, contactName, contact);
       });
     } else if (listen_status) {
       print(
@@ -1173,7 +1196,9 @@ class HomePageState extends State<HomePage>
       _pendingShareContactName = contact.name;
 
       TTSManager().speak(
-        "Do you want to share your location with ${contact.name}? Please say yes or no.",
+        checkLanguageCondition()
+            ? "Do you want to share your location with ${contact.name}? Please say yes or no."
+            : "ನಿಮ್ಮ ಸ್ಥಳವನ್ನು ನೀವು ${contact.name}? ರೊಂದಿಗೆ ಹಂಚಿಕೊಳ್ಳಲು ಬಯಸುತ್ತೀರ? \n ದಯವಿಟ್ಟು ಹೇಳಿ yes ಅಥವಾ no.",
       );
     } else {
       print("❓ Default: Asking for confirmation");
@@ -1182,7 +1207,9 @@ class HomePageState extends State<HomePage>
       _pendingShareContactName = contact.name;
 
       TTSManager().speak(
-        "Do you want to share your location with ${contact.name}? Please say yes or no.",
+        checkLanguageCondition()
+            ? "Do you want to share your location with ${contact.name}? Please say yes or no."
+            : "ನಿಮ್ಮ ಸ್ಥಳವನ್ನು ನೀವು ${contact.name}? ರೊಂದಿಗೆ ಹಂಚಿಕೊಳ್ಳಲು ಬಯಸುತ್ತೀರ? \n ದಯವಿಟ್ಟು ಹೇಳಿ yes ಅಥವಾ no.",
       );
     }
   }
@@ -1235,7 +1262,11 @@ class HomePageState extends State<HomePage>
 
       ld.LocationData locData = await location.getLocation();
       if (locData.latitude != null && locData.longitude != null) {
-        return "https://www.google.com/maps?q=${locData.latitude},${locData.longitude}";
+        if (checkLanguageCondition()) {
+          return "🚨I'm in an emergency!🚨 Please help me. I'm currently at this location:\n https://www.google.com/maps?q=${locData.latitude},${locData.longitude} \nPlease try to call as soon as you see this message. Also arrive to the above location as soon as possible.";
+        } else {
+          return "🚨ನಾನು ತುರ್ತು ಪರಿಸ್ಥಿತಿಯಲ್ಲಿ ಇದ್ದೇನೆ!🚨ದಯವಿಟ್ಟು ಸಹಾಯ ಮಾಡಿ. ನಾನು ಪ್ರಸ್ತುತ ಈ ಸ್ಥಳದಲ್ಲಿದ್ದೇನೆ:\n https://www.google.com/maps?q=${locData.latitude},${locData.longitude} \nದಯವಿಟ್ಟು ಈ ಕಳಿಸಿರುವ ಸ್ಥಳಕ್ಕೆ ಬೇಗ ಬನ್ನಿ ಹಾಗೂ ಈ ಸಂದೇಶವನ್ನು ನೋಡಿದ ಕೂಡಲೇ ನನಗೆ ಒಂದು ಕರೆ ಮಾಡಿ.";
+        }
       }
       return null;
     } catch (e) {
@@ -1245,24 +1276,9 @@ class HomePageState extends State<HomePage>
   }
 
   /// Share location with specific contact
-  Future<void> _shareLocationWithContact(int contactOption) async {
+  Future<void> _shareLocationWithContact(int contactOption, bool emergency,
+      String contactName, final contact) async {
     try {
-      // if (contactOption == -1) {
-      //   _shareLocationWithAll();
-      //   return;
-      // }
-
-      if (contactOption < 1 || contactOption > contactManager.contacts.length) {
-        TTSManager().speak("Invalid contact option.");
-        return;
-      }
-
-      final contacts = contactManager.contacts;
-      final locationContacts =
-          contacts.where((c) => c.location == true).toList();
-
-      final contact = locationContacts[contactOption - 1];
-
       // Share via SMS or WhatsApp
       final phoneNumber = contact.phone.replaceAll(RegExp(r'[^\d+]'), '');
 
@@ -1270,6 +1286,8 @@ class HomePageState extends State<HomePage>
         // You can use url_launcher to open WhatsApp, SMS, or other apps
         // Example: WhatsApp
         final shareMessage = await _getLocationLink();
+
+        final seconds = 10;
         if (shareMessage != null) {
           final Uri whatsappUri = Uri.parse(
               "https://wa.me/$phoneNumber?text=${Uri.encodeComponent(shareMessage)}");
@@ -1277,7 +1295,20 @@ class HomePageState extends State<HomePage>
           if (await canLaunchUrl(whatsappUri)) {
             await launchUrl(whatsappUri);
             print("✅ Location shared with ${contact.name} via WhatsApp");
-            TTSManager().speak("Location shared with ${contact.name}");
+
+            if (emergency) {
+              await TTSManager().speak(checkLanguageCondition()
+                  ? "Location shared with ${contact.name}. \n Also in next $seconds seconds a phone call will be initiated, please stay in the APP. "
+                  : "ನಿಮ್ಮ ಸ್ಥಳವನ್ನು ${contact.name} ನೊಂದಿಗೆ ಹಂಚಿಕೊಳ್ಳಲಾಗಿದೆ. \n ಮುಂದಿನ $seconds ಸೆಕೆಂಡುಗಳಲ್ಲಿ ಫೋನ್ ಕರೆ ಪ್ರಾರಂಭವಾಗುತ್ತದೆ, ದಯವಿಟ್ಟು APP ನಲ್ಲಿ ಇರಿ.");
+
+              await Future.delayed(Duration(seconds: 10), () {
+                _makePhoneCall(1, true, '', {});
+              });
+            } else {
+              await TTSManager().speak(checkLanguageCondition()
+                  ? "Location shared with ${contact.name}."
+                  : "ನಿಮ್ಮ ಸ್ಥಳವನ್ನು ${contact.name} ನೊಂದಿಗೆ ಹಂಚಿಕೊಳ್ಳಲಾಗಿದೆ.");
+            }
           } else {
             // Fallback: SMS
             final Uri smsUri = Uri.parse(
@@ -1285,16 +1316,22 @@ class HomePageState extends State<HomePage>
             if (await canLaunchUrl(smsUri)) {
               await launchUrl(smsUri);
               print("✅ Location shared with ${contact.name} via SMS");
-              TTSManager().speak("Location shared with ${contact.name}");
+              await TTSManager().speak(checkLanguageCondition()
+                  ? "Location shared with ${contact.name}"
+                  : "ನಿಮ್ಮ ಸ್ಥಳವನ್ನು ${contact.name} ನೊಂದಿಗೆ ಹಂಚಿಕೊಳ್ಳಲಾಗಿದೆ.");
             }
           }
         }
       } else {
-        TTSManager().speak("Phone number not available for this contact.");
+        TTSManager().speak(checkLanguageCondition()
+            ? "Phone number not available for this contact."
+            : "ಈ ಸಂಪರ್ಕಕ್ಕೆ ಫೋನ್ ಸಂಖ್ಯೆ ಲಭ್ಯವಿಲ್ಲ.");
       }
     } catch (e) {
       print("❌ Error sharing location: $e");
-      TTSManager().speak("An error occurred while sharing your location.");
+      TTSManager().speak(checkLanguageCondition()
+          ? "An error occurred while sharing your location."
+          : "ನಿಮ್ಮ ಸ್ಥಳವನ್ನು ಹಂಚಿಕೊಳ್ಳುವಾಗ ದೋಷ ಸಂಭವಿಸಿದೆ.");
     }
   }
 
@@ -1354,24 +1391,25 @@ class HomePageState extends State<HomePage>
 
   // Trigger SOS
   Future<void> _triggerSOS() async {
-    store = await LocalStore.getInstance();
-    print("LocalStore initialized: $store");
+    // store = await LocalStore.getInstance();
+    // print("LocalStore initialized: $store");
 
-    prefsMap = store.getGeneralPrefs();
+    // prefsMap = store.getGeneralPrefs();
 
-    if (prefsMap == {}) {
-      prefsMap['defaultAction'] = "call";
-    }
+    // if (prefsMap == {}) {
+    //   prefsMap['defaultAction'] = "call";
+    // }
 
-    print("✅ Loaded prefsMap: $prefsMap");
+    // print("✅ Loaded prefsMap: $prefsMap");
 
-    final action = prefsMap['defaultAction'];
+    // final action = prefsMap['defaultAction'];
 
-    if (action == "Call") {
-      _makePhoneCall(1, true);
-    } else if (action == "Share Location") {
-      _shareLocationWithContact(1);
-    }
+    _shareLocationWithContact(1, true, "", {});
+    // if (action == "Call") {
+
+    // } else if (action == "Share Location") {
+
+    // }
   }
 
   Future<Map<String, dynamic>> get_user_intent(String transcript) async {
@@ -1437,13 +1475,15 @@ class HomePageState extends State<HomePage>
   String _getMicStatusText() {
     switch (_micStatus) {
       case MicStatus.idle:
-        return 'IDLE';
+        return checkLanguageCondition() ? 'IDLE' : 'ಐಡಲ್';
       case MicStatus.listening:
-        return 'LISTENING';
+        return checkLanguageCondition() ? 'LISTENING' : 'ಆಲಿಸುವುದು';
       case MicStatus.processing:
-        return 'PROCESSING';
+        return checkLanguageCondition()
+            ? 'PROCESSING'
+            : 'ಪ್ರಕ್ರಿಯೆಗೊಳಿಸಲಾಗುತ್ತಿದೆ';
       case MicStatus.error:
-        return 'ERROR';
+        return checkLanguageCondition() ? 'ERROR' : 'ದೋಷ';
     }
   }
 
@@ -1456,8 +1496,6 @@ class HomePageState extends State<HomePage>
   void dispose() {
     _mediaChannel.setMethodCallHandler(null);
     _pulseController.dispose();
-    _mediaChannel.setMethodCallHandler(null);
-    _pulseController.dispose();
     _emergencyListeningTimer?.cancel();
     _stopEmergencyListener();
     super.dispose();
@@ -1466,34 +1504,52 @@ class HomePageState extends State<HomePage>
   @override
   Widget build(BuildContext context) {
     final List<Map<String, dynamic>> features = [
+      // {
+      //   "title": "Practice STT",
+      //   "icon": Icons.image_search,
+      //   "page": MediaButtonTestPage(
+      //     screen: '',
+      //   ),
+      // },
+      // {
+      //   "title": "Kannada STT",
+      //   "icon": Icons.image_search,
+      //   "page": KannadaSpeechToTextPage(),
+      // },
       {
-        "title": "Object Detection",
+        "title": checkLanguageCondition() ? "Object Detection" : "ವಸ್ತು ಪತ್ತೆ",
         "icon": Icons.camera_alt,
-        "page": ObjectDetectionScreen()
+        "page": ObjectDetectionScreen(
+          language: preffered_lang ?? "English",
+        )
       },
-      {"title": "OCR", "icon": Icons.text_fields, "page": OCRHomePage()},
       {
-        "title": "Navigation",
+        "title": checkLanguageCondition() ? "OCR" : "ಒ.ಸಿ.ಆರ್",
+        "icon": Icons.text_fields,
+        "page": OCRHomePage(
+          language: preffered_lang ?? "English",
+        )
+      },
+      {
+        "title": checkLanguageCondition() ? "Navigation" : "ನ್ಯಾವಿಗೇಷನ್",
         "icon": Icons.navigation,
-        "page": WalkingRouteMapPage()
+        "page": WalkingRouteMapPage(
+          language: preffered_lang ?? "English",
+        )
       },
       {
-        "title": "Scene Description",
+        "title":
+            checkLanguageCondition() ? "Scene Description" : "ದೃಶ್ಯ ವಿವರಣೆ",
         "icon": Icons.image_search,
-        "page": SceneDescriptionScreen()
-      },
-      {
-        "title": "Practice Area",
-        "icon": Icons.image_search,
-        "page": MediaButtonTestPage(
-          screen: "home",
+        "page": SceneDescriptionScreen(
+          language: preffered_lang ?? "English",
         )
       },
     ];
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
-        title: Text("ResQ"),
+        title: Text(checkLanguageCondition() ? "ResQ" : "ರೆಸ್ಕ್ಯೂ"),
         centerTitle: true,
         actions: [
           // Add replay onboarding button in settings
@@ -1518,239 +1574,275 @@ class HomePageState extends State<HomePage>
         ],
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              // Status Header
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.deepPurple,
-                  borderRadius: const BorderRadius.only(
-                    bottomLeft: Radius.circular(30),
-                    bottomRight: Radius.circular(30),
-                  ),
-                ),
-                child: Column(
-                  children: [
-                    // Mic Status Indicator
-                    AnimatedBuilder(
-                      animation: _pulseAnimation,
-                      builder: (context, child) {
-                        return Transform.scale(
-                          scale: _micStatus == MicStatus.listening
-                              ? _pulseAnimation.value
-                              : 1.0,
-                          child: Container(
-                            width: 80,
-                            height: 80,
-                            decoration: BoxDecoration(
-                              color: _getMicStatusColor(),
-                              shape: BoxShape.circle,
-                              boxShadow: _micStatus == MicStatus.listening
-                                  ? [
-                                      BoxShadow(
-                                        color: Colors.red.withOpacity(0.5),
-                                        blurRadius: 20,
-                                        spreadRadius: 5,
-                                      )
-                                    ]
-                                  : null,
-                            ),
-                            child: Icon(
-                              _getMicStatusIcon(),
-                              size: 40,
-                              color: Colors.white,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      _getMicStatusText(),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 2,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      _statusMessage,
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.9),
-                        fontSize: 14,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 20),
-
-              // Connect Glasses Button
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.redAccent,
-                    minimumSize: Size(double.infinity, 80),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+        child: RefreshIndicator(
+          onRefresh: () async {
+            await initAll();
+          },
+          child: SingleChildScrollView(
+            physics: AlwaysScrollableScrollPhysics(),
+            child: Column(
+              children: [
+                // Status Header
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.deepPurple,
+                    borderRadius: const BorderRadius.only(
+                      bottomLeft: Radius.circular(30),
+                      bottomRight: Radius.circular(30),
                     ),
                   ),
-                  onPressed: () async {
-                    showStatusSnackBar(
-                        context, "Connecting to the Glasses", "warning");
-                    bool res = await checkConnectivity();
-                    if (res) {
-                      showStatusSnackBar(
-                          context, "Glasses has been connected!", "success");
-                    }
-                  },
-                  icon:
-                      Icon(Icons.wifi_tethering, color: Colors.white, size: 28),
-                  label: Text(
-                    "Connect Glasses",
-                    style: TextStyle(
-                        fontSize: 20,
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              // Grid of 4 feature squares
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: GridView.builder(
-                  shrinkWrap: true,
-                  physics: NeverScrollableScrollPhysics(),
-                  itemCount: features.length,
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 16,
-                    mainAxisSpacing: 16,
-                    childAspectRatio: 1.0,
-                  ),
-                  itemBuilder: (context, index) {
-                    final feature = features[index];
-                    return GestureDetector(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => feature["page"]),
-                        );
-                      },
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.redAccent,
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black26,
-                              blurRadius: 6,
-                              offset: Offset(2, 2),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(feature["icon"],
-                                size: 50, color: Colors.white),
-                            SizedBox(height: 10),
-                            Text(
-                              feature["title"],
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
+                  child: Column(
+                    children: [
+                      // Mic Status Indicator
+                      AnimatedBuilder(
+                        animation: _pulseAnimation,
+                        builder: (context, child) {
+                          return Transform.scale(
+                            scale: _micStatus == MicStatus.listening
+                                ? _pulseAnimation.value
+                                : 1.0,
+                            child: Container(
+                              width: 80,
+                              height: 80,
+                              decoration: BoxDecoration(
+                                color: _getMicStatusColor(),
+                                shape: BoxShape.circle,
+                                boxShadow: _micStatus == MicStatus.listening
+                                    ? [
+                                        BoxShadow(
+                                          color: Colors.red.withOpacity(0.5),
+                                          blurRadius: 20,
+                                          spreadRadius: 5,
+                                        )
+                                      ]
+                                    : null,
                               ),
-                              textAlign: TextAlign.center,
+                              child: Icon(
+                                _getMicStatusIcon(),
+                                size: 40,
+                                color: Colors.white,
+                              ),
                             ),
-                          ],
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        _getMicStatusText(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 2,
                         ),
                       ),
-                    );
-                  },
+                      const SizedBox(height: 8),
+                      Text(
+                        _statusMessage,
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.9),
+                          fontSize: 14,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
                 ),
-              ),
 
-              const SizedBox(height: 20),
+                const SizedBox(height: 20),
 
-              const SizedBox(height: 80), // Extra space for FAB
-            ],
+                // Connect Glasses Button
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.redAccent,
+                      minimumSize: Size(double.infinity, 80),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    onPressed: () async {
+                      showStatusSnackBar(
+                          context,
+                          checkLanguageCondition()
+                              ? "Connecting to the Glasses"
+                              : "ಕನ್ನಡಕಗಳಿಗೆ ಸಂಪರ್ಕಿಸಲಾಗುತ್ತಿದೆ",
+                          "warning");
+                      bool res = await checkConnectivity();
+                      if (res) {
+                        await TTSManager().speak(checkLanguageCondition()
+                            ? "Connecting to your glasses \n\n Your glasses has been successfully connected"
+                            : "ಕನ್ನಡಕಗಳಿಗೆ ಸಂಪರ್ಕಿಸಲಾಗುತ್ತಿದೆ. \n\n ನಿಮ್ಮ ಕನ್ನಡಕವನ್ನು ಯಶಸ್ವಿಯಾಗಿ ಜೋಡಿಸಲಾಗಿದೆ");
+                        // await Future.delayed(Duration(seconds: 4), () {
+                        //   TTSManager().speak(checkLanguageCondition()
+                        //       ? "Your glasses has been successfully connected"
+                        //       : "ನಿಮ್ಮ ಕನ್ನಡಕವನ್ನು ಯಶಸ್ವಿಯಾಗಿ ಜೋಡಿಸಲಾಗಿದೆ");
+                        // });
+                        showStatusSnackBar(
+                            context,
+                            checkLanguageCondition()
+                                ? "Glasses has been connected!"
+                                : "ನಿಮ್ಮ ಕನ್ನಡಕವನ್ನು ಯಶಸ್ವಿಯಾಗಿ ಜೋಡಿಸಲಾಗಿದೆ",
+                            "success");
+                      }
+                    },
+                    icon: Icon(Icons.wifi_tethering,
+                        color: Colors.white, size: 28),
+                    label: Text(
+                      checkLanguageCondition()
+                          ? "Connect Glasses"
+                          : "ಕನೆಕ್ಟ್ ಗ್ಲಾಸ್‌ಗಳು",
+                      style: TextStyle(
+                          fontSize: 20,
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // Grid of 4 feature squares
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: GridView.builder(
+                    shrinkWrap: true,
+                    physics: NeverScrollableScrollPhysics(),
+                    itemCount: features.length,
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      crossAxisSpacing: 16,
+                      mainAxisSpacing: 16,
+                      childAspectRatio: 1.0,
+                    ),
+                    itemBuilder: (context, index) {
+                      final feature = features[index];
+                      return GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => feature["page"]),
+                          );
+                        },
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.redAccent,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black26,
+                                blurRadius: 6,
+                                offset: Offset(2, 2),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(feature["icon"],
+                                  size: 50, color: Colors.white),
+                              SizedBox(height: 10),
+                              Text(
+                                feature["title"],
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+
+                const SizedBox(height: 20),
+
+                const SizedBox(height: 80), // Extra space for FAB
+              ],
+            ),
           ),
         ),
       ),
       floatingActionButton: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Padding(
-            padding: const EdgeInsets.only(bottom: 12.0),
-            child: FloatingActionButton.extended(
-              heroTag: 'sos_fab', // ✅ Add this line
-              backgroundColor: Colors.red,
-              icon: Icon(Icons.emergency, color: Colors.white),
-              label: Text("SOS",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  )),
-              onPressed: () async {
-                if (!_emergencyInProgress) {
-                  bool wasTriggered = await setCounter();
-                  if (wasTriggered) {
-                    debugPrint("✅ Emergency SOS triggered");
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 12.0),
+              child: FloatingActionButton.extended(
+                heroTag: 'sos_fab', // ✅ Add this line
+                backgroundColor: Colors.red,
+                icon: Icon(Icons.emergency, color: Colors.white),
+                label: Text(
+                    checkLanguageCondition() ? "SOS" : "ತುರ್ತು \nಪರಿಸ್ಥಿತಿ",
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        overflow: TextOverflow.visible)),
+                onPressed: () async {
+                  if (!_emergencyInProgress) {
+                    // _triggerSOS();
+                    bool wasTriggered = await setCounter();
+                    if (wasTriggered) {
+                      debugPrint("✅ Emergency SOS triggered");
+                    } else {
+                      debugPrint("❌ Emergency was cancelled");
+                    }
                   } else {
-                    debugPrint("❌ Emergency was cancelled");
+                    TTSManager().speak(checkLanguageCondition()
+                        ? "Emergency feature already in progress."
+                        : "ತುರ್ತು ವೈಶಿಷ್ಟ್ಯವು ಈಗಾಗಲೇ ಪ್ರಗತಿಯಲ್ಲಿದೆ.");
                   }
-                } else {
-                  TTSManager().speak("Emergency already in progress.");
-                }
-              },
+                },
+              ),
             ),
           ),
           SizedBox(width: 20), // Space between buttons
 
-          Padding(
-            padding: const EdgeInsets.only(bottom: 12.0),
-            child: FloatingActionButton.extended(
-              heroTag: 'media_button_fab', // ✅ Add this line
-              backgroundColor: _micStatus == MicStatus.listening
-                  ? Colors.red
-                  : Colors.deepPurple,
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 12.0),
+              child: FloatingActionButton.extended(
+                heroTag: 'media_button_fab', // ✅ Add this line
+                backgroundColor: _micStatus == MicStatus.listening
+                    ? Colors.red
+                    : Colors.deepPurple,
 
-              icon: Icon(
-                _micStatus == MicStatus.listening ? Icons.stop : Icons.mic,
-                size: 24,
-                color: Colors.white,
-              ),
-              label: Text(
-                _micStatus == MicStatus.listening
-                    ? 'Stop Listening'
-                    : 'Start Listening',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
+                icon: Icon(
+                  _micStatus == MicStatus.listening ? Icons.stop : Icons.mic,
+                  size: 24,
                   color: Colors.white,
                 ),
+                label: Text(
+                  _micStatus == MicStatus.listening
+                      ? checkLanguageCondition()
+                          ? 'Stop Listening'
+                          : 'ಕೇಳುವುದನ್ನು \nನಿಲ್ಲಿಸಿ'
+                      : checkLanguageCondition()
+                          ? 'Start Listening'
+                          : 'ಕೇಳುವುದನ್ನು \nಪ್ರಾರಂಭಿಸಿ',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                onPressed: () async {
+                  // TODO: implement SOS
+                  _manualStart();
+                  // _handleListContacts();
+                },
               ),
-              onPressed: () async {
-                // TODO: implement SOS
-                _manualStart();
-                // _handleListContacts();
-              },
             ),
-          ),
+          )
         ],
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,

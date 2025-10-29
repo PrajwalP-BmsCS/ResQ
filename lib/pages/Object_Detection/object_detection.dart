@@ -5,9 +5,14 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
+import 'package:req_demo/pages/Flutter_STT/language_translation.dart';
+import 'package:req_demo/pages/Flutter_TTS/tts.dart';
 import 'package:req_demo/pages/utils/util.dart';
 
 class ObjectDetectionScreen extends StatefulWidget {
+  final String language;
+  ObjectDetectionScreen({required this.language});
+
   @override
   _ObjectDetectionScreenState createState() => _ObjectDetectionScreenState();
 }
@@ -15,9 +20,11 @@ class ObjectDetectionScreen extends StatefulWidget {
 class _ObjectDetectionScreenState extends State<ObjectDetectionScreen> {
   File? _capturedImage;
   List<dynamic>? _detections;
-  final FlutterTts flutterTts = FlutterTts();
   static const platform = MethodChannel('onnx_channel');
   bool _isDetecting = false;
+  String appTitle = "";
+  String imageNote = "";
+  String finalResult = "";
 
   // ⚡ your ESP32 CAM endpoint
   final String esp32Url = '$espBaseUrl/capture';
@@ -25,16 +32,24 @@ class _ObjectDetectionScreenState extends State<ObjectDetectionScreen> {
   @override
   void initState() {
     super.initState();
-    flutterTts.setLanguage("en-IN");
-    flutterTts.setSpeechRate(0.5);
-    flutterTts.setPitch(1.0);
+
     _fetchAndDetect();
   }
 
   Future<void> _fetchAndDetect() async {
-    setState(() {
-      _isDetecting = true;
-    });
+    if (widget.language != "English") {
+      print("LANG ${widget.language}");
+      setState(() {
+        // _isDetecting = true;
+        appTitle = "ವಸ್ತು ಪತ್ತೆ";
+        imageNote = "ಇನ್ನೂ ಯಾವುದೇ ಚಿತ್ರವನ್ನು ಸೆರೆಹಿಡಿಯಲಾಗಿಲ್ಲ";
+      });
+    } else {
+      setState(() {
+        _isDetecting = true;
+        appTitle = "Object Detection";
+      });
+    }
 
     try {
       // add timestamp param to force ESP32 refresh
@@ -70,27 +85,41 @@ class _ObjectDetectionScreenState extends State<ObjectDetectionScreen> {
       // 🗣️ Speak results
       if (result.isNotEmpty) {
         String detectedObjects = result.join(", ");
-        await flutterTts.speak("I see $detectedObjects");
+        detectedObjects += "I am seeing" + detectedObjects + "in front me";
+
+        if (widget.language != "English") {
+          detectedObjects = (await TranslationService.translateWithMyMemory(
+              detectedObjects, "en|kn"))!;
+        }
+        await TTSManager().speak("$detectedObjects");
+
+        setState(() {
+          finalResult = detectedObjects;
+        });
       } else {
-        await flutterTts.speak("No objects detected");
+        await TTSManager().speak(widget.language == "English"
+            ? "No objects detected"
+            : "ಯಾವುದೇ ವಸ್ತುಗಳು ಪತ್ತೆಯಾಗಿಲ್ಲ");
       }
     } catch (e) {
       print("❌ Error fetching/detecting: $e");
       setState(() => _isDetecting = false);
-      await flutterTts.speak("Error detecting objects");
+      await TTSManager().speak(widget.language == "English"
+          ? "No objects detected"
+          : "ಯಾವುದೇ ವಸ್ತುಗಳು ಪತ್ತೆಯಾಗಿಲ್ಲ");
     }
   }
 
   @override
   void dispose() {
-    flutterTts.stop();
+    TTSManager().stop();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("Object Detection")),
+      appBar: AppBar(title: Text(appTitle)),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(20),
@@ -100,11 +129,15 @@ class _ObjectDetectionScreenState extends State<ObjectDetectionScreen> {
                   children: [
                     CircularProgressIndicator(),
                     SizedBox(height: 20),
-                    Text("Capturing and detecting..."),
+                    Text(
+                      widget.language == "English"
+                          ? "Capturing and detecting..."
+                          : "ಸೆರೆಹಿಡಿಯುವುದು ಮತ್ತು ಪತ್ತೆಹಚ್ಚುವುದು...",
+                    ),
                   ],
                 )
               : _capturedImage == null
-                  ? Text("No image captured yet")
+                  ? Text(imageNote)
                   : Column(
                       children: [
                         FutureBuilder<Uint8List>(
@@ -120,9 +153,11 @@ class _ObjectDetectionScreenState extends State<ObjectDetectionScreen> {
                           },
                         ),
                         const SizedBox(height: 20),
-                        if (_detections != null)
+                        if (finalResult != null)
                           Text(
-                            "Detected Objects: ${_detections!.join(", ")}",
+                            widget.language == "English"
+                                ? "Detected Objects: ${finalResult}"
+                                : "ಪತ್ತೆಯಾದ ವಸ್ತುಗಳು: ${finalResult}",
                             style: TextStyle(fontSize: 16),
                           ),
                         const SizedBox(height: 20),

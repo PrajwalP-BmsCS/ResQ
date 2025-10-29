@@ -7,13 +7,15 @@ import 'package:location/location.dart';
 import 'package:req_demo/pages/Flutter_TTS/tts.dart';
 import 'package:req_demo/pages/Navigation/nav_utility_functions.dart';
 import 'package:req_demo/pages/Navigation/set_current_location.dart';
+import 'package:req_demo/pages/Settings/app_settings.dart';
 import 'package:req_demo/pages/Settings/settings_page.dart';
 import 'package:req_demo/pages/utils/util.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class WalkingRouteMapPage extends StatefulWidget {
-  const WalkingRouteMapPage({super.key});
+  final String language;
+  const WalkingRouteMapPage({super.key, required this.language});
 
   @override
   State<WalkingRouteMapPage> createState() => _WalkingRouteMapPageState();
@@ -26,35 +28,47 @@ class _WalkingRouteMapPageState extends State<WalkingRouteMapPage> {
   String result = "Tap on the map or search an address...";
   List<LatLng> _polylinePoints = [];
   final TextEditingController _searchController = TextEditingController();
+  late String appTitle = "";
 
   late ContactManager contactManager;
 
   Future<void> initAll() async {
-  contactManager = ContactManager();
+    contactManager = ContactManager();
 
-  final prefs = await SharedPreferences.getInstance();
-  final raw = prefs.getStringList('emergency_contacts'); // list of JSON strings
-  print(raw);
+    final prefs = await SharedPreferences.getInstance();
+    final raw =
+        prefs.getStringList('emergency_contacts'); // list of JSON strings
+    print(raw);
 
-  if (raw != null && raw.isNotEmpty) {
-    // decode each string and convert to EmergencyContact
-    final decodedContacts = raw
-        .map((e) => EmergencyContact.fromJson(jsonDecode(e)))
-        .toList();
+    if (raw != null && raw.isNotEmpty) {
+      // decode each string and convert to EmergencyContact
+      final decodedContacts =
+          raw.map((e) => EmergencyContact.fromJson(jsonDecode(e))).toList();
 
-    setState(() {
-      contactManager.contacts = decodedContacts;
-    });
+      if (widget.language == "English") {
+        setState(() {
+          contactManager.contacts = decodedContacts;
+          result = "Tap on the map or search an address...";
+          appTitle = "Search address";
+        });
+      } else {
+        result = "ನಕ್ಷೆಯ ಮೇಲೆ ಟ್ಯಾಪ್ ಮಾಡಿ ಅಥವಾ ವಿಳಾಸವನ್ನು ಹುಡುಕಿ...";
+        appTitle = "ವಿಳಾಸವನ್ನು ಹುಡುಕಿ...";
+      }
 
-    // Print each contact’s data
-    for (var c in contactManager.contacts) {
-      print("Name: ${c.name}, Phone: ${c.phone}, LAT: ${c.latitude}, LNG: ${c.longitude}");
+      setState(() {
+        contactManager.contacts = decodedContacts;
+      });
+
+      // Print each contact’s data
+      for (var c in contactManager.contacts) {
+        print(
+            "Name: ${c.name}, Phone: ${c.phone}, LAT: ${c.latitude}, LNG: ${c.longitude}");
+      }
+    } else {
+      print("⚠️ No contacts found in SharedPreferences.");
     }
-  } else {
-    print("⚠️ No contacts found in SharedPreferences.");
   }
-}
-
 
   @override
   void initState() {
@@ -80,12 +94,16 @@ class _WalkingRouteMapPageState extends State<WalkingRouteMapPage> {
         serviceEnabled = await location.requestService();
         if (!serviceEnabled) {
           if (mounted) {
-            TTSManager().speak(
-                "Location services are disabled. Please enable location services.");
+            final res = await checkLanguageCondition();
+            TTSManager().speak(res
+                ? "Location services are disabled. Please enable location services."
+                : "ಸ್ಥಳ ಸೇವೆಗಳನ್ನು ನಿಷ್ಕ್ರಿಯಗೊಳಿಸಲಾಗಿದೆ. ದಯವಿಟ್ಟು ಸ್ಥಳ ಸೇವೆಗಳನ್ನು ಸಕ್ರಿಯಗೊಳಿಸಿ.");
             showStatusSnackBar(
                 context,
-                "Location services are disabled. Please enable location services.",
-                "wanrning");
+                res
+                    ? "Location services are disabled. Please enable location services."
+                    : "ಸ್ಥಳ ಸೇವೆಗಳನ್ನು ನಿಷ್ಕ್ರಿಯಗೊಳಿಸಲಾಗಿದೆ. ದಯವಿಟ್ಟು ಸ್ಥಳ ಸೇವೆಗಳನ್ನು ಸಕ್ರಿಯಗೊಳಿಸಿ.",
+                "warning");
             // setState(() {
             //   result = "Location services are disabled.";
             // });
@@ -99,15 +117,19 @@ class _WalkingRouteMapPageState extends State<WalkingRouteMapPage> {
         permissionGranted = await location.requestPermission();
         if (permissionGranted != PermissionStatus.granted) {
           if (mounted) {
-            TTSManager().speak(
-                "Location permission denied. Please grant location permission.");
+            final res = await checkLanguageCondition();
+            TTSManager().speak(res
+                ? "Location permission denied. Please grant location permission."
+                : "ಸ್ಥಳ ಅನುಮತಿ ನಿರಾಕರಿಸಲಾಗಿದೆ. ದಯವಿಟ್ಟು ಸ್ಥಳ ಅನುಮತಿಯನ್ನು ನೀಡಿ.");
             showStatusSnackBar(
                 context,
-                "Location permission denied. Please grant location permission.",
-                "wanrning");
-            setState(() {
-              result = "Location permission denied.";
-            });
+                res
+                    ? "Location permission denied. Please grant location permission."
+                    : "ಸ್ಥಳ ಅನುಮತಿ ನಿರಾಕರಿಸಲಾಗಿದೆ. ದಯವಿಟ್ಟು ಸ್ಥಳ ಅನುಮತಿಯನ್ನು ನೀಡಿ.",
+                "warning");
+            // setState(() {
+            //   result = "Location permission denied.";
+            // });
           }
           return;
         }
@@ -123,12 +145,19 @@ class _WalkingRouteMapPageState extends State<WalkingRouteMapPage> {
       }
     } catch (e) {
       if (mounted) {
-        TTSManager().speak("Error getting location. Please try again.");
+        final res = await checkLanguageCondition();
+        TTSManager().speak(res
+            ? "Error getting location. Please try again."
+            : "ಸ್ಥಳ ಪಡೆಯುವಲ್ಲಿ ದೋಷ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.");
         showStatusSnackBar(
-            context, "Error getting location. Please try again.", "wanrning");
-        setState(() {
-          result = "Error getting location: $e";
-        });
+            context,
+            res
+                ? "Error getting location. Please try again."
+                : "ಸ್ಥಳ ಪಡೆಯುವಲ್ಲಿ ದೋಷ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
+            "warning");
+        // setState(() {
+        //   result = "Error getting location: $e";
+        // });
       }
     }
   }
@@ -162,10 +191,16 @@ class _WalkingRouteMapPageState extends State<WalkingRouteMapPage> {
     if (_currentPos == null) return;
 
     if (mounted) {
-      TTSManager().speak("Your route is being Fetched. Please wait.");
-      showStatusSnackBar(context, "Fetching route...", "wanrning");
+      final bool res = await checkLanguageCondition();
+      await TTSManager().speak(res
+          ? "Your route is being Fetched. Please wait."
+          : "ನಿಮ್ಮ ಮಾರ್ಗವನ್ನು ತರಲಾಗುತ್ತಿದೆ. ದಯವಿಟ್ಟು ನಿರೀಕ್ಷಿಸಿ.");
+      showStatusSnackBar(
+          context,
+          res ? "Fetching route..." : "ಮಾರ್ಗವನ್ನು ಪಡೆಯಲಾಗುತ್ತಿದೆ...",
+          "warning");
       setState(() {
-        result = "Fetching route...";
+        result = res ? "Fetching route..." : "ಮಾರ್ಗವನ್ನು ಪಡೆಯಲಾಗುತ್ತಿದೆ...";
         _polylinePoints = [];
       });
     }
@@ -183,19 +218,26 @@ class _WalkingRouteMapPageState extends State<WalkingRouteMapPage> {
     );
 
     if (await canLaunchUrl(uri)) {
+     TTSManager().speak(await checkLanguageCondition()
+          ? "Navigation started to the selected location."
+          : "ಆಯ್ಕೆ ಮಾಡಿದ ಸ್ಥಳಕ್ಕೆ ಸಂಚರಣೆ ಪ್ರಾರಂಭವಾಗಿದೆ.");
+
       await launchUrl(
         uri,
         mode:
             LaunchMode.externalApplication, // ensures it opens outside Flutter
       );
-
-      await Future.delayed(const Duration(seconds: 3), () {
-        TTSManager().speak("Navigation started to the selected location.");
-      });
     } else {
-      TTSManager().speak("Could not launch Maps Please try again.");
+      final res = await checkLanguageCondition();
+      TTSManager().speak(res
+          ? "Could not launch Maps Please try again."
+          : "ನಕ್ಷೆಗಳನ್ನು ಪ್ರಾರಂಭಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.");
       showStatusSnackBar(
-          context, "Could not launch Maps Please try again.", "wanrning");
+          context,
+          res
+              ? "Could not launch Maps Please try again."
+              : "ನಕ್ಷೆಗಳನ್ನು ಪ್ರಾರಂಭಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
+          "warning");
       print("❌ Could not launch Maps for psrv");
     }
 
@@ -275,9 +317,16 @@ class _WalkingRouteMapPageState extends State<WalkingRouteMapPage> {
       _getWalkingRoute(dest);
     } else {
       if (mounted) {
-        TTSManager().speak("Address not found! Please try again.");
+        final res = await checkLanguageCondition();
+        TTSManager().speak(res
+            ? "Address not found! Please try again."
+            : "ವಿಳಾಸ ಸಿಗಲಿಲ್ಲ! ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.");
         showStatusSnackBar(
-            context, "Address not found! Please try again.", "wanrning");
+            context,
+            res
+                ? "Address not found! Please try again."
+                : "ವಿಳಾಸ ಸಿಗಲಿಲ್ಲ! ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
+            "warning");
         setState(() {
           result = "❌ Address not found!";
         });
@@ -302,12 +351,19 @@ class _WalkingRouteMapPageState extends State<WalkingRouteMapPage> {
     contactManager.saveContacts();
   }
 
-  void _navigateToLocation(EmergencyContact c) {
+  void _navigateToLocation(EmergencyContact c) async {
     if (mounted) {
-      TTSManager().speak("Your route is being Fetched. Please wait.");
-      showStatusSnackBar(context, "Fetching route...", "wanrning");
+      final res = await checkLanguageCondition();
+      await TTSManager().speak(res
+          ? "Your route is being Fetched. Please wait."
+          : "ನಿಮ್ಮ ಮಾರ್ಗವನ್ನು ತರಲಾಗುತ್ತಿದೆ. ದಯವಿಟ್ಟು ನಿರೀಕ್ಷಿಸಿ.");
+
+      showStatusSnackBar(
+          context,
+          res ? "Fetching route..." : "ಮಾರ್ಗವನ್ನು ಪಡೆಯಲಾಗುತ್ತಿದೆ...",
+          "warning");
       setState(() {
-        result = "Fetching route...";
+        result = res ? "Fetching route..." : "ಮಾರ್ಗವನ್ನು ಪಡೆಯಲಾಗುತ್ತಿದೆ...";
         _polylinePoints = [];
       });
     }
@@ -349,8 +405,8 @@ class _WalkingRouteMapPageState extends State<WalkingRouteMapPage> {
           controller: _searchController,
           textInputAction: TextInputAction.search,
           onSubmitted: (_) => _onSearch(),
-          decoration: const InputDecoration(
-            hintText: "Search address (e.g., BMSCE)...",
+          decoration: InputDecoration(
+            hintText: appTitle,
             border: InputBorder.none,
           ),
         ),
@@ -367,16 +423,22 @@ class _WalkingRouteMapPageState extends State<WalkingRouteMapPage> {
               child: Column(
                 children: [
                   sectionCard(
-                    title: 'Saved Locations (Family Members)',
-                    subtitle: 'Drag to reorder priority.',
+                    title: widget.language == "English"
+                        ? 'Saved Locations (Family Members)'
+                        : 'ಉಳಿಸಿದ ಸ್ಥಳಗಳು (ಕುಟುಂಬ ಸದಸ್ಯರು)',
+                    subtitle: widget.language == "English"
+                        ? 'Drag to reorder priority.'
+                        : "ಆದ್ಯತೆಯನ್ನು ಮರುಕ್ರಮಗೊಳಿಸಲು ಎಳೆಯಿರಿ.",
                     child: Column(
                       children: [
                         SizedBox(
                           height: 260,
                           child: contacts.isEmpty
-                              ? const Center(
+                              ? Center(
                                   child: Text(
-                                    'No family members added yet.\nTap below to add up to 4 members.',
+                                    widget.language == "English"
+                                        ? 'No family members added yet.\nTap below to add up to 4 members.'
+                                        : "ಇನ್ನೂ ಯಾವುದೇ ಕುಟುಂಬ ಸದಸ್ಯರನ್ನು ಸೇರಿಸಲಾಗಿಲ್ಲ.\nಗರಿಷ್ಠ 4 ಸದಸ್ಯರನ್ನು ಸೇರಿಸಲು ಕೆಳಗೆ ಟ್ಯಾಪ್ ಮಾಡಿ.",
                                     textAlign: TextAlign.center,
                                     style: TextStyle(
                                         fontSize: 16, color: Colors.grey),
@@ -389,34 +451,41 @@ class _WalkingRouteMapPageState extends State<WalkingRouteMapPage> {
                                   onReorder: _reorderContacts,
                                   itemBuilder: (ctx, idx) {
                                     final c = locationContacts[idx];
-                                    return (c.location) ? ListTile(
-                                        key: ValueKey(c.id),
-                                        leading: CircleAvatar(
-                                          child: Text(
-                                              c.name.isEmpty ? '?' : c.name[0]),
-                                        ),
-                                        title: Text(c.name,
-                                            style: const TextStyle(
-                                                fontSize: 18,
-                                                fontWeight: FontWeight.w500)),
-                                        subtitle: Text(
-                                          '${c.phone}\n'
-                                          'Location:  ${c.latitude != null && c.longitude != null ? "${c.latitude}, ${c.longitude}" : "Not set"}',
-                                        ),
-                                        trailing: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            IconButton(
-                                              icon: const Icon(Icons.navigation,
-                                                  size: 40,
-                                                  color: Colors.green),
-                                              onPressed: (c.latitude != null &&
-                                                      c.longitude != null)
-                                                  ? () => _navigateToLocation(c)
-                                                  : null,
+                                    return (c.location)
+                                        ? ListTile(
+                                            key: ValueKey(c.id),
+                                            leading: CircleAvatar(
+                                              child: Text(c.name.isEmpty
+                                                  ? '?'
+                                                  : c.name[0]),
                                             ),
-                                          ],
-                                        )) : SizedBox();
+                                            title: Text(c.name,
+                                                style: const TextStyle(
+                                                    fontSize: 18,
+                                                    fontWeight:
+                                                        FontWeight.w500)),
+                                            subtitle: Text(
+                                              '${c.phone}\n'
+                                              '${widget.language == "English" ? "Location:" : "ಸ್ಥಳ"} ${c.latitude != null && c.longitude != null ? "${c.latitude}, ${c.longitude}" : widget.language == "English" ? "Not set" : "ಹೊಂದಿಸಲಾಗಿಲ್ಲ"}',
+                                            ),
+                                            trailing: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                IconButton(
+                                                  icon: const Icon(
+                                                      Icons.navigation,
+                                                      size: 40,
+                                                      color: Colors.green),
+                                                  onPressed: (c.latitude !=
+                                                              null &&
+                                                          c.longitude != null)
+                                                      ? () =>
+                                                          _navigateToLocation(c)
+                                                      : null,
+                                                ),
+                                              ],
+                                            ))
+                                        : SizedBox();
                                   },
                                 ),
                         ),

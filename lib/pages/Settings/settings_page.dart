@@ -3,7 +3,7 @@ import 'dart:io'; // <-- add this at the top of your Dart file
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:req_demo/debug_data.dart';
+import 'package:req_demo/pages/Settings/debug_data.dart';
 import 'package:req_demo/pages/Flutter_TTS/tts.dart';
 import 'package:req_demo/pages/Navigation/set_current_location.dart';
 import 'package:req_demo/pages/utils/util.dart';
@@ -136,15 +136,15 @@ Future<void> callNumber(String number) async {
 }
 
 /// Navigate using Google Maps
-Future<void> _navigateToLocation(EmergencyContact c) async {
-  final url = Uri.parse(
-      "https://www.google.com/maps/dir/?api=1&destination=${c.latitude},${c.longitude}");
-  if (await canLaunchUrl(url)) {
-    await launchUrl(url);
-  } else {
-    debugPrint("Could not launch Maps for ${c.name}");
-  }
-}
+// Future<void> _navigateToLocation(EmergencyContact c) async {
+//   final url = Uri.parse(
+//       "https://www.google.com/maps/dir/?api=1&destination=${c.latitude},${c.longitude}");
+//   if (await canLaunchUrl(url)) {
+//     await launchUrl(url);
+//   } else {
+//     debugPrint("Could not launch Maps for ${c.name}");
+//   }
+// }
 
 // ------------------------- Storage Helpers -------------------------
 class LocalStore {
@@ -285,11 +285,6 @@ class _SettingsPageState extends State<SettingsPage> {
     _initAll();
   }
 
-  // REMOVE these conflicting methods:
-// _saveContactsToLocalDb()
-// _loadContactsFromLocalDb()
-// _saveContacts()
-
 // USE ONLY this consistent method:
 
   /// Save location to a contact
@@ -342,8 +337,8 @@ class _SettingsPageState extends State<SettingsPage> {
     }
 
     // Initialize TTS
-    await tts.setLanguage('en-US');
-    await tts.setSpeechRate(0.45);
+    // await tts.setLanguage('en-US');
+    // await tts.setSpeechRate(0.45);
 
     setState(() => loading = false);
   }
@@ -392,42 +387,6 @@ class _SettingsPageState extends State<SettingsPage> {
     debugPrint("Contacts reordered and saved");
   }
 
-  // Future<void> _initAll() async {
-  //   store = await LocalStore.getInstance();
-  //   print("FINAL $store");
-
-  //   // Always fetch existing data from storage (persisted)
-  //   contacts = store.getContacts();
-  //   medical = store.getMedical();
-  //   prefsMap =
-  //       store.getGeneralPrefs(); // <-- will load old values if they exist
-  //   logs = store.getSosLogs();
-
-  //   print("Loaded contacts: $contacts");
-  //   print("Loaded medical: $medical");
-  //   print("Loaded prefsMap: $prefsMap");
-  //   print("Loaded logs: $logs");
-
-  //   // Initialize TTS
-  //   await tts.setLanguage('en-US');
-  //   await tts.setSpeechRate(0.45);
-
-  //   setState(() => loading = false);
-  // }
-
-  // /// Save location to a contact
-  // void _setContactLocation(int index, LatLng pos) {
-  //   setState(() {
-  //     contacts[index].latitude = pos.latitude.toString();
-  //     contacts[index].longitude = pos.longitude.toString();
-  //     contacts[index].location = true;
-  //   });
-
-  //   // _saveContactsToLocalDb();
-  //   debugPrint(
-  //       "Updated location for ${contacts[index].name}: ${pos.latitude}, ${pos.longitude}");
-  // }
-
   /// Navigate using Google Maps
   Future<void> _navigateToLocation(EmergencyContact c) async {
     final double lat = double.parse(c.latitude!);
@@ -443,7 +402,15 @@ class _SettingsPageState extends State<SettingsPage> {
             LaunchMode.externalApplication, // ensures it opens outside Flutter
       );
 
-      TTSManager().speak("Navigation started to the selected location.");
+      TTSManager().speak(checkLanguageCondition()
+          ? "Your route is being Fetched. Please wait."
+          : "ನಿಮ್ಮ ಮಾರ್ಗವನ್ನು ತರಲಾಗುತ್ತಿದೆ. ದಯವಿಟ್ಟು ನಿರೀಕ್ಷಿಸಿ.");
+
+      await Future.delayed(const Duration(seconds: 4), () async {
+        TTSManager().speak(checkLanguageCondition()
+            ? "Navigation started to the selected location."
+            : "ಆಯ್ಕೆ ಮಾಡಿದ ಸ್ಥಳಕ್ಕೆ ನ್ಯಾವಿಗೇಷನ್ ಪ್ರಾರಂಭವಾಗಿದೆ.");
+      });
     } else {
       print("❌ Could not launch Maps for psrv");
     }
@@ -451,12 +418,16 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _saveMedical() async {
     await store.setMedical(medical);
-    await tts.speak('Medical information saved');
+    await tts.speak(checkLanguageCondition()
+        ? 'Medical information saved'
+        : 'ವೈದ್ಯಕೀಯ ಮಾಹಿತಿಯನ್ನು ಉಳಿಸಲಾಗಿದೆ');
   }
 
   Future<void> _savePrefs() async {
     await store.setGeneralPrefs(prefsMap);
-    TTSManager().speak('Preferences saved');
+    await TTSManager().speak(checkLanguageCondition()
+        ? 'Preferences saved'
+        : 'ಆದ್ಯತೆಗಳನ್ನು ಉಳಿಸಲಾಗಿದೆ');
   }
 
 // // Add contact
@@ -550,8 +521,9 @@ class _SettingsPageState extends State<SettingsPage> {
       // print("Contacts: $contacts");
       final callContacts = contacts.where((c) => c.allowCall).toList();
       if (callContacts.isEmpty) {
-        await tts
-            .speak('No emergency contacts with call enabled. Please add one.');
+        await tts.speak(checkLanguageCondition()
+            ? 'No emergency contacts with call enabled. Please add one.'
+            : 'ಕರೆ ಸಕ್ರಿಯಗೊಳಿಸಿದ ಯಾವುದೇ ತುರ್ತು ಸಂಪರ್ಕಗಳಿಲ್ಲ. ದಯವಿಟ್ಟು ಒಂದನ್ನು ಸೇರಿಸಿ.');
         return;
       }
       print("Contacts: $callContacts");
@@ -559,7 +531,11 @@ class _SettingsPageState extends State<SettingsPage> {
       // Step 1: Announce options via TTS
       for (var i = 0; i < callContacts.length; i++) {
         await tts.awaitSpeakCompletion(true); // ensures we wait
-        await tts.speak('Option ${i + 1}: Call ${callContacts[i].name}');
+
+        String s = checkLanguageCondition()
+            ? 'Option ${i + 1}: Call ${callContacts[i].name}'
+            : 'ಆಯ್ಕೆ ${i + 1}: ಕರೆ ${callContacts[i].name}';
+        await tts.speak(s);
       }
 
       // Step 2 (Future): Wait for user audio input or choice
@@ -685,7 +661,10 @@ class _SettingsPageState extends State<SettingsPage> {
 
   // UI builder helpers below
   Widget sectionCard(
-      {required Widget child, required String title, String? subtitle}) {
+      {required Widget child,
+      required String title,
+      String? subtitle,
+      required String message}) {
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -695,9 +674,27 @@ class _SettingsPageState extends State<SettingsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title,
-                style:
-                    const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(title,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        overflow: TextOverflow.visible,
+                      )),
+                ),
+                IconButton(
+                    onPressed: () async {
+                      await TTSManager().speak(message);
+                    },
+                    icon: Icon(
+                      Icons.mic,
+                      size: 35,
+                    ))
+              ],
+            ),
             if (subtitle != null)
               Text(subtitle, style: const TextStyle(fontSize: 14)),
             const SizedBox(height: 8),
@@ -706,6 +703,10 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
       ),
     );
+  }
+
+  bool checkLanguageCondition() {
+    return prefsMap['lang'] == "English";
   }
 
   @override
@@ -719,7 +720,8 @@ class _SettingsPageState extends State<SettingsPage> {
 
     return Scaffold(
       appBar: AppBar(
-          title: const Text('Preferences', style: TextStyle(fontSize: 22)),
+          title: Text(checkLanguageCondition() ? 'Preferences' : "ಆದ್ಯತೆಗಳು",
+              style: TextStyle(fontSize: 22)),
           centerTitle: true),
       backgroundColor: Colors.redAccent,
       body: SafeArea(
@@ -728,17 +730,248 @@ class _SettingsPageState extends State<SettingsPage> {
             padding: const EdgeInsets.only(bottom: 24.0),
             child: Column(
               children: [
+                // sectionCard(
+                //   message: checkLanguageCondition()
+                //       ? "In this section you can choose to display onboarding instructions on every launch of Application"
+                //       : "ಈ ವಿಭಾಗದಲ್ಲಿ ನೀವು ಅಪ್ಲಿಕೇಶನ್‌ನ ಪ್ರತಿ ಉಡಾವಣೆಯಲ್ಲಿ ಆನ್‌ಬೋರ್ಡಿಂಗ್ ಸೂಚನೆಗಳನ್ನು ಪ್ರದರ್ಶಿಸಲು ಆಯ್ಕೆ ಮಾಡಬಹುದು.",
+                //   title: checkLanguageCondition()
+                //       ? 'Onboard Instructions'
+                //       : 'ಆನ್ಬೋರ್ಡ್ ಸೂಚನೆಗಳು',
+                //   subtitle: checkLanguageCondition()
+                //       ? 'Choose Yes or No in the dropdown given below.'
+                //       : 'ಕೆಳಗೆ ನೀಡಲಾದ ಡ್ರಾಪ್‌ಡೌನ್‌ನಲ್ಲಿ ಹೌದು ಅಥವಾ ಇಲ್ಲ ಆಯ್ಕೆಮಾಡಿ.',
+                //   child: Column(
+                //     children: [
+                //       ListTile(
+                //         leading: const Icon(Icons.warning, size: 36),
+                //         title: Text(
+                //             checkLanguageCondition()
+                //                 ? 'Show Onboard Instructions'
+                //                 : 'ಆನ್‌ಬೋರ್ಡ್ ಸೂಚನೆಗಳನ್ನು ತೋರಿಸಿ',
+                //             style: TextStyle(fontSize: 18)),
+                //         trailing: DropdownButton<String>(
+                //           value: prefsMap['onboarding_completed'] ?? false
+                //               ? "Yes"
+                //               : "No",
+                //           items: const [
+                //             "Yes",
+                //             "No",
+                //           ]
+                //               .map((e) =>
+                //                   DropdownMenuItem(value: e, child: Text(e)))
+                //               .toList(),
+                //           onChanged: (v) {
+                //             setState(() {
+                //               if (v == "Yes") {
+                //                 prefsMap['onboarding_completed'] = false;
+                //               } else {
+                //                 prefsMap['onboarding_completed'] = true;
+                //               }
+                //             });
+                //             _savePrefs();
+                //           },
+                //         ),
+                //       ),
+                //       const SizedBox(height: 8),
+                //     ],
+                //   ),
+                // ),
+
                 sectionCard(
-                  title: 'Emergency Action',
-                  subtitle:
-                      'Choose default action when hardware SOS is pressed',
+                  message: checkLanguageCondition()
+                      ? "In this section, you can manage onboarding preferences and set your display name."
+                      : "ಈ ವಿಭಾಗದಲ್ಲಿ, ನೀವು ಆನ್‌ಬೋರ್ಡಿಂಗ್ ಆಯ್ಕೆಗಳನ್ನು ನಿರ್ವಹಿಸಬಹುದು ಮತ್ತು ನಿಮ್ಮ ಪ್ರದರ್ಶನ ಹೆಸರನ್ನು ಹೊಂದಿಸಬಹುದು.",
+                  title: checkLanguageCondition()
+                      ? 'Onboarding & Profile'
+                      : 'ಆನ್‌ಬೋರ್ಡಿಂಗ್ ಮತ್ತು ಪ್ರೊಫೈಲ್',
+                  subtitle: checkLanguageCondition()
+                      ? 'Update your name and choose if onboarding instructions should be shown.'
+                      : 'ನಿಮ್ಮ ಹೆಸರನ್ನು ನವೀಕರಿಸಿ ಮತ್ತು ಆನ್‌ಬೋರ್ಡಿಂಗ್ ಸೂಚನೆಗಳನ್ನು ತೋರಿಸಬೇಕೇ ಎಂಬುದನ್ನು ಆಯ್ಕೆಮಾಡಿ.',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // 🧍‍♂️ User Name Field
+                      ListTile(
+                        leading: const Icon(Icons.person, size: 36),
+                        title: Text(
+                          checkLanguageCondition()
+                              ? 'Your Name'
+                              : 'ನಿಮ್ಮ ಹೆಸರು',
+                          style: const TextStyle(fontSize: 18),
+                        ),
+                        subtitle: TextField(
+                          controller: TextEditingController(
+                            text: prefsMap['user_name'] ?? '',
+                          ),
+                          decoration: InputDecoration(
+                            hintText: checkLanguageCondition()
+                                ? 'Enter your name'
+                                : 'ನಿಮ್ಮ ಹೆಸರನ್ನು ನಮೂದಿಸಿ',
+                            border: const OutlineInputBorder(),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 8,
+                            ),
+                          ),
+                          onChanged: (value) {
+                            prefsMap['user_name'] = value;
+                          },
+                        ),
+                      ),
+
+                      const SizedBox(height: 8),
+
+                      // 💾 Save Button
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: ElevatedButton.icon(
+                          icon: const Icon(Icons.save),
+                          label: Text(
+                            checkLanguageCondition() ? "Save" : "ಉಳಿಸಿ",
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          onPressed: () async {
+                            await _savePrefs();
+                            if (mounted) {
+                              showStatusSnackBar(
+                                context,
+                                checkLanguageCondition()
+                                    ? "User name saved successfully!"
+                                    : "ಬಳಕೆದಾರರ ಹೆಸರನ್ನು ಯಶಸ್ವಿಯಾಗಿ ಉಳಿಸಲಾಗಿದೆ!",
+                                "success",
+                              );
+                            }
+                          },
+                        ),
+                      ),
+
+                      const Divider(thickness: 1.5, height: 24),
+
+                      // ⚙️ Onboarding Toggle Section
+                      ListTile(
+                        leading: const Icon(Icons.warning, size: 36),
+                        title: Text(
+                          checkLanguageCondition()
+                              ? 'Show Onboard Instructions'
+                              : 'ಆನ್‌ಬೋರ್ಡ್ ಸೂಚನೆಗಳನ್ನು ತೋರಿಸಿ',
+                          style: const TextStyle(fontSize: 18),
+                        ),
+                        trailing: DropdownButton<String>(
+                          value: (prefsMap['onboarding_completed'] ?? false)
+                              ? "No"
+                              : "Yes",
+                          items: const [
+                            DropdownMenuItem(value: "Yes", child: Text("Yes")),
+                            DropdownMenuItem(value: "No", child: Text("No")),
+                          ],
+                          onChanged: (v) {
+                            setState(() {
+                              prefsMap['onboarding_completed'] =
+                                  (v == "Yes") ? false : true;
+                            });
+                            _savePrefs();
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                sectionCard(
+                  message: checkLanguageCondition()
+                      ? "In this section you can choose your prefferred Language \n and Audio speed at which you want to communicate  \n\n Available languages are English and Kannada."
+                      : "ಈ ವಿಭಾಗದಲ್ಲಿ ನೀವು ನಿಮ್ಮ ಆದ್ಯತೆಯ ಭಾಷೆ \n ಮತ್ತು ನೀವು ಸಂವಹನ ಮಾಡಲು ಬಯಸುವ ಆಡಿಯೊ ವೇಗವನ್ನು ಆಯ್ಕೆ ಮಾಡಬಹುದು \n\n ಲಭ್ಯವಿರುವ ಭಾಷೆಗಳು ಇಂಗ್ಲಿಷ್ ಮತ್ತು ಕನ್ನಡ.",
+                  title: checkLanguageCondition()
+                      ? 'Choose Language:'
+                      : 'ಭಾಷೆಯನ್ನು ಆರಿಸಿ:',
+                  subtitle: checkLanguageCondition()
+                      ? 'Choose Default Language which you want to talk to RESQ'
+                      : 'ನೀವು RESQ ಜೊತೆ ಮಾತನಾಡಲು ಬಯಸುವ ಡೀಫಾಲ್ಟ್ ಭಾಷೆಯನ್ನು ಆರಿಸಿ',
+                  child: Column(
+                    children: [
+                      ListTile(
+                        title: Text(
+                            checkLanguageCondition()
+                                ? 'Voice Speed'
+                                : "ಧ್ವನಿ ವೇಗ",
+                            style: TextStyle(fontSize: 18)),
+                        subtitle: Slider(
+                          min: 0.2,
+                          max: 1.0,
+                          value: (prefsMap['voiceSpeed'] ?? 0.45) as double,
+                          onChanged: (v) {
+                            setState(() => prefsMap['voiceSpeed'] = v);
+                            tts.setSpeechRate(v);
+                            _savePrefs();
+                          },
+                        ),
+                      ),
+                      ListTile(
+                        leading: const Icon(Icons.warning, size: 36),
+                        title: Text(
+                            checkLanguageCondition()
+                                ? 'Default Language'
+                                : "ಡೀಫಾಲ್ಟ್ ಭಾಷೆ",
+                            style: TextStyle(fontSize: 18)),
+                        subtitle: Text(prefsMap['lang'] ?? 'English'),
+                        trailing: DropdownButton<String>(
+                          value: prefsMap['lang'] ?? 'English',
+                          items: const [
+                            "English",
+                            "ಕನ್ನಡ (Kannada)",
+                          ]
+                              .map((e) =>
+                                  DropdownMenuItem(value: e, child: Text(e)))
+                              .toList(),
+                          onChanged: (v) {
+                            setState(() {
+                              prefsMap['lang'] = v;
+                            });
+                            _savePrefs();
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      ElevatedButton.icon(
+                        onPressed: () async {
+                          await tts.speak(checkLanguageCondition()
+                              ? 'This is a voice test at your configured speed'
+                              : 'ಇದು ನಿಮ್ಮ ಕಾನ್ಫಿಗರ್ ಮಾಡಿದ ವೇಗದಲ್ಲಿ ಧ್ವನಿ ಪರೀಕ್ಷೆಯಾಗಿದೆ');
+                        },
+                        icon: const Icon(Icons.volume_up),
+                        label: Text(checkLanguageCondition()
+                            ? 'Voice Test'
+                            : 'ಧ್ವನಿ ಪರೀಕ್ಷೆ'),
+                      ),
+                    ],
+                  ),
+                ),
+                sectionCard(
+                  message: checkLanguageCondition()
+                      ? "In this section you can choose emergency action \n\n by selecting call feature \n or \n share location."
+                      : "ಈ ವಿಭಾಗದಲ್ಲಿ ನೀವು ಕರೆ ವೈಶಿಷ್ಟ್ಯವನ್ನು \n ಅಥವಾ \n ಸ್ಥಳವನ್ನು ಹಂಚಿಕೊಳ್ಳುವ ಮೂಲಕ \n\n ತುರ್ತು ಕ್ರಮವನ್ನು ಆಯ್ಕೆ ಮಾಡಬಹುದು.",
+                  title: checkLanguageCondition()
+                      ? 'Emergency Action'
+                      : 'ತುರ್ತು ಕ್ರಮ',
+                  subtitle: checkLanguageCondition()
+                      ? 'Choose default action when hardware SOS is pressed'
+                      : 'ಹಾರ್ಡ್‌ವೇರ್ SOS ಒತ್ತಿದಾಗ ಡೀಫಾಲ್ಟ್ ಕ್ರಿಯೆಯನ್ನು ಆರಿಸಿ',
                   child: Column(
                     children: [
                       ListTile(
                         leading: const Icon(Icons.warning, size: 36),
-                        title: const Text('Default Action',
+                        title: Text(
+                            checkLanguageCondition()
+                                ? 'Default Action'
+                                : 'ಡೀಫಾಲ್ಟ್ ಕ್ರಿಯೆ',
                             style: TextStyle(fontSize: 18)),
-                        subtitle: Text(prefsMap['defaultAction'] ?? 'Call'),
+                        subtitle: Text(checkLanguageCondition()
+                            ? (prefsMap['defaultAction'] == 'Share Location'
+                                ? 'Share Location'
+                                : "Call")
+                            : (prefsMap['defaultAction'] == 'Share Location'
+                                ? 'ಸ್ಥಳವನ್ನು ಹಂಚಿಕೊಳ್ಳಿ'
+                                : "ಕರೆ")),
                         trailing: DropdownButton<String>(
                           value: prefsMap['defaultAction'] ?? 'Call',
                           items: const [
@@ -755,151 +988,31 @@ class _SettingsPageState extends State<SettingsPage> {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      ElevatedButton.icon(
-                        onPressed: () async {
-                          final action =
-                              prefsMap['defaultAction']?.toLowerCase();
-
-                          print("Triggering SOS action: $action");
-
-                          // Step 1: Trigger SOS logic
-                          if (action == "call") {
-                            await _triggerSOS("call");
-                          } else if (action == "sms" ||
-                              action == "share location") {
-                            await _triggerSOS("location");
-                          }
-
-                          // Step 2: Get eligible contacts
-                          List<EmergencyContact> eligible = [];
-                          if (action == "call") {
-                            eligible =
-                                contacts.where((c) => c.allowCall).toList();
-                          } else if (action == "share location" ||
-                              action == "sms") {
-                            eligible =
-                                contacts.where((c) => c.allowLocation).toList();
-                          }
-
-                          // Step 3: If no contacts → show warning dialog
-                          if (eligible.isEmpty) {
-                            showDialog(
-                              context: context,
-                              builder: (ctx) => AlertDialog(
-                                title: const Text("No Eligible Contacts"),
-                                content: const Text(
-                                  "Please add family members and enable the correct options.",
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(ctx),
-                                    child: const Text("OK"),
-                                  ),
-                                ],
-                              ),
-                            );
-                            return;
-                          }
-
-                          // Step 4: Show dialog ONLY for CALL action
-                          if (action == "call") {
-                            showDialog(
-                              context: context,
-                              builder: (ctx) => AlertDialog(
-                                title: Text(
-                                  "Emergency ${action[0].toUpperCase()}${action.substring(1)} Options",
-                                ),
-                                content: SizedBox(
-                                  width: double.maxFinite,
-                                  child: ListView.builder(
-                                    shrinkWrap: true,
-                                    itemCount: eligible.length,
-                                    itemBuilder: (ctx, i) {
-                                      final c = eligible[i];
-                                      return ListTile(
-                                        leading: CircleAvatar(
-                                          child: Text(c.name.isNotEmpty
-                                              ? c.name[0]
-                                              : "?"),
-                                        ),
-                                        title: Text(c.name),
-                                        subtitle: Text(c.phone),
-                                        trailing: IconButton(
-                                          icon: const Icon(Icons.phone,
-                                              color: Colors.green),
-                                          onPressed: () {
-                                            callNumber(c.phone); // actual call
-                                          },
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(ctx),
-                                    child: const Text("Close"),
-                                  ),
-                                ],
-                              ),
-                            );
-                          } else {
-                            // For SMS or share location → no dialog
-                            showStatusSnackBar(
-                                context,
-                                "Location shared with emergency contacts",
-                                "success");
-                          }
-                        },
-                        icon: const Icon(Icons.phone),
-                        label: const Text(
-                          'Test SOS',
-                          style: TextStyle(fontSize: 18),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          minimumSize: const Size.fromHeight(50),
-                        ),
-                      ),
                     ],
-                  ),
-                ),
-
-                ElevatedButton(
-                  child: const Text("Open Debug Page"),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => const PreferencesDebugPage()),
-                    );
-                  },
-                ),
-
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    // backgroundColor: Colors.red,
-                    minimumSize: const Size.fromHeight(50),
-                  ),
-                  onPressed: () => _confirmDeleteAll(context),
-                  icon: const Icon(Icons.delete_forever),
-                  label: const Text(
-                    "Delete All Preferences",
-                    style: TextStyle(fontSize: 18),
                   ),
                 ),
 
                 // Contacts & priority
                 sectionCard(
-                  title: 'Emergency Contacts (Priority Order)',
-                  subtitle: 'Tap to edit. Drag to reorder priority.',
+                  message: checkLanguageCondition()
+                      ? "In this section you have the facility to add emergency contact details, \n or edit them, \n or rearrange your based on your priority. "
+                      : "ಈ ವಿಭಾಗದಲ್ಲಿ ನೀವು ತುರ್ತು ಸಂಪರ್ಕ ವಿವರಗಳನ್ನು ಸೇರಿಸಲು, \n ಅಥವಾ ಅವುಗಳನ್ನು ಸಂಪಾದಿಸಲು, \n ಅಥವಾ ನಿಮ್ಮ ಆದ್ಯತೆಯ ಆಧಾರದ ಮೇಲೆ ಮರುಹೊಂದಿಸಲು ಸೌಲಭ್ಯವನ್ನು ಹೊಂದಿದ್ದೀರಿ.",
+                  title: checkLanguageCondition()
+                      ? 'Emergency Contacts (Priority Order)'
+                      : 'ತುರ್ತು ಸಂಪರ್ಕಗಳು (ಆದ್ಯತೆಯ ಆದೇಶ)',
+                  subtitle: checkLanguageCondition()
+                      ? 'Tap to edit. Drag to reorder priority.'
+                      : 'ಸಂಪಾದಿಸಲು ಟ್ಯಾಪ್ ಮಾಡಿ. ಆದ್ಯತೆಯನ್ನು ಮರುಕ್ರಮಗೊಳಿಸಲು ಎಳೆಯಿರಿ.',
                   child: Column(
                     children: [
                       SizedBox(
                         height: 260,
                         child: contacts.isEmpty
-                            ? const Center(
+                            ? Center(
                                 child: Text(
-                                  'No contacts added yet.\nTap below to add up to 4 family members.',
+                                  checkLanguageCondition()
+                                      ? 'No contacts added yet.\nTap below to add up to 4 family members.'
+                                      : 'ಇನ್ನೂ ಯಾವುದೇ ಸಂಪರ್ಕಗಳನ್ನು ಸೇರಿಸಲಾಗಿಲ್ಲ.\n4 ಕುಟುಂಬ ಸದಸ್ಯರನ್ನು ಸೇರಿಸಲು ಕೆಳಗೆ ಟ್ಯಾಪ್ ಮಾಡಿ.',
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
                                       fontSize: 16, color: Colors.grey),
@@ -919,14 +1032,16 @@ class _SettingsPageState extends State<SettingsPage> {
                                           c.name.isEmpty ? '?' : c.name[0]),
                                     ),
                                     title: Text(c.name,
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                             fontSize: 18,
                                             fontWeight: FontWeight.w500)),
                                     subtitle: Text(
-                                      '${c.phone}\n'
-                                      'Features: \n'
-                                      '${c.allowCall ? "📞 Call \n" : ""}'
-                                      '${c.allowLocation ? "📍 Location" : ""}',
+                                      '${c.phone}\n' +
+                                          (checkLanguageCondition()
+                                              ? 'Features: \n'
+                                              : "ವೈಶಿಷ್ಟ್ಯಗಳು: \n") +
+                                          '${c.allowCall ? (checkLanguageCondition() ? "📞 Call \n" : '📞 ಕರೆ \n') : ""}'
+                                              '${c.allowLocation ? (checkLanguageCondition() ? "📍 Location" : "📍 ಸ್ಥಳ") : ""}',
                                     ),
                                     trailing: Row(
                                       mainAxisSize: MainAxisSize.min,
@@ -951,8 +1066,12 @@ class _SettingsPageState extends State<SettingsPage> {
                         icon: const Icon(Icons.add),
                         label: Text(
                           contacts.length >= 4
-                              ? 'Maximum of 4 contacts reached'
-                              : 'Add Family Member',
+                              ? (checkLanguageCondition()
+                                  ? 'Maximum of 4 contacts reached'
+                                  : 'ಗರಿಷ್ಠ 4 ಸಂಪರ್ಕಗಳನ್ನು ತಲುಪಲಾಗಿದೆ')
+                              : (checkLanguageCondition()
+                                  ? 'Add Family Member'
+                                  : 'ಕುಟುಂಬ ಸದಸ್ಯರನ್ನು ಸೇರಿಸಿ'),
                           style: const TextStyle(fontSize: 18),
                         ),
                         style: ElevatedButton.styleFrom(
@@ -964,17 +1083,25 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
 
                 sectionCard(
-                  title: 'Saved Locations (Family Members)',
-                  subtitle:
-                      'Tap to add or update a location. Drag to reorder priority.',
+                  message: checkLanguageCondition()
+                      ? "In this section you can save locations of family members which will be used for Navigation purpose."
+                      : "ಈ ವಿಭಾಗದಲ್ಲಿ ನೀವು ಕುಟುಂಬ ಸದಸ್ಯರ ಸ್ಥಳಗಳನ್ನು ಉಳಿಸಬಹುದು, ಅದನ್ನು ಸಂಚರಣೆ ಉದ್ದೇಶಕ್ಕಾಗಿ ಬಳಸಲಾಗುತ್ತದೆ.",
+                  title: checkLanguageCondition()
+                      ? 'Saved Locations (Family Members)'
+                      : 'ಉಳಿಸಿದ ಸ್ಥಳಗಳು (ಕುಟುಂಬ ಸದಸ್ಯರು)',
+                  subtitle: checkLanguageCondition()
+                      ? 'Tap to add or update a location. Drag to reorder priority.'
+                      : 'ಸ್ಥಳವನ್ನು ಸೇರಿಸಲು ಅಥವಾ ನವೀಕರಿಸಲು ಟ್ಯಾಪ್ ಮಾಡಿ. ಆದ್ಯತೆಯನ್ನು ಮರುಕ್ರಮಗೊಳಿಸಲು ಎಳೆಯಿರಿ.',
                   child: Column(
                     children: [
                       SizedBox(
                         height: 260,
                         child: contacts.isEmpty
-                            ? const Center(
+                            ? Center(
                                 child: Text(
-                                  'No family members added yet.\nTap below to add up to 4 members.',
+                                  checkLanguageCondition()
+                                      ? 'No family members added yet.\nTap below to add up to 4 members.'
+                                      : 'ಇನ್ನೂ ಯಾವುದೇ ಕುಟುಂಬ ಸದಸ್ಯರನ್ನು ಸೇರಿಸಲಾಗಿಲ್ಲ.\n4 ಸದಸ್ಯರವರೆಗೆ ಸೇರಿಸಲು ಕೆಳಗೆ ಟ್ಯಾಪ್ ಮಾಡಿ.',
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
                                       fontSize: 16, color: Colors.grey),
@@ -999,7 +1126,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                             fontWeight: FontWeight.w500)),
                                     subtitle: Text(
                                       '${c.phone}\n'
-                                      'Location: ${c.latitude != null && c.longitude != null ? "${c.latitude}, ${c.longitude}" : "Not set"}',
+                                      '${checkLanguageCondition() ? "Location:" : "ಸ್ಥಳ"} ${c.latitude != null && c.longitude != null ? "${c.latitude}, ${c.longitude}" : checkLanguageCondition() ? "Not set" : "ಹೊಂದಿಸಲಾಗಿಲ್ಲ"}',
                                     ),
                                     trailing: Row(
                                       mainAxisSize: MainAxisSize.min,
@@ -1042,8 +1169,12 @@ class _SettingsPageState extends State<SettingsPage> {
                         icon: const Icon(Icons.add_location_alt),
                         label: Text(
                           contacts.length >= 4
-                              ? 'Maximum of 4 contacts reached'
-                              : 'Add Family Member',
+                              ? (checkLanguageCondition()
+                                  ? 'Maximum of 4 contacts reached'
+                                  : 'ಗರಿಷ್ಠ 4 ಸಂಪರ್ಕಗಳನ್ನು ತಲುಪಲಾಗಿದೆ')
+                              : (checkLanguageCondition()
+                                  ? 'Add Family Member'
+                                  : 'ಕುಟುಂಬ ಸದಸ್ಯರನ್ನು ಸೇರಿಸಿ'),
                           style: const TextStyle(fontSize: 18),
                         ),
                         style: ElevatedButton.styleFrom(
@@ -1054,62 +1185,57 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                 ),
 
-                // sectionCard(
-                //   title: 'Preferred SIM for SOS Calls',
-                //   subtitle:
-                //       'Select which SIM to use when calling emergency contacts',
-                //   child: ListTile(
-                //     leading: const Icon(Icons.sim_card, size: 36),
-                //     title: const Text('Select SIM',
-                //         style: TextStyle(fontSize: 18)),
-                //     trailing: DropdownButton<int>(
-                //       value: prefsMap['preferredSim'] ?? 0,
-                //       items: const [
-                //         DropdownMenuItem(value: 0, child: Text('SIM 1')),
-                //         DropdownMenuItem(value: 1, child: Text('SIM 2')),
-                //       ],
-                //       onChanged: (v) {
-                //         setState(() => prefsMap['preferredSim'] = v);
-                //         store.setGeneralPrefs(prefsMap);
-                //       },
-                //     ),
-                //   ),
-                // ),
-
                 // Medical Information
                 sectionCard(
-                  title: 'Medical Information',
-                  subtitle: 'Shareable details for first responders',
+                  message: checkLanguageCondition()
+                      ? "In this section you can save your medical informations \n and can be shared during emergency."
+                      : "ಈ ವಿಭಾಗದಲ್ಲಿ ನೀವು ನಿಮ್ಮ ವೈದ್ಯಕೀಯ ಮಾಹಿತಿಯನ್ನು ಉಳಿಸಬಹುದು ಮತ್ತು \n ತುರ್ತು ಸಮಯದಲ್ಲಿ ಹಂಚಿಕೊಳ್ಳಬಹುದು.",
+                  title: checkLanguageCondition()
+                      ? 'Medical Information'
+                      : 'ವೈದ್ಯಕೀಯ ಮಾಹಿತಿ',
+                  subtitle: checkLanguageCondition()
+                      ? 'Shareable details for first responders'
+                      : 'ಮೊದಲು ಪ್ರತಿಕ್ರಿಯಿಸುವವರಿಗೆ ಹಂಚಿಕೊಳ್ಳಬಹುದಾದ ವಿವರಗಳು',
                   child: Column(
                     children: [
                       TextFormField(
                         initialValue: medical.bloodGroup,
-                        decoration:
-                            const InputDecoration(labelText: 'Blood Group'),
+                        decoration: InputDecoration(
+                            labelText: checkLanguageCondition()
+                                ? 'Blood Group'
+                                : 'ರಕ್ತ ಗುಂಪು'),
                         onChanged: (v) => medical.bloodGroup = v,
                       ),
                       TextFormField(
                         initialValue: medical.allergies,
-                        decoration:
-                            const InputDecoration(labelText: 'Allergies'),
+                        decoration: InputDecoration(
+                            labelText: checkLanguageCondition()
+                                ? 'Allergies'
+                                : 'ಅಲರ್ಜಿಗಳು'),
                         onChanged: (v) => medical.allergies = v,
                       ),
                       TextFormField(
                         initialValue: medical.medications,
-                        decoration:
-                            const InputDecoration(labelText: 'Medications'),
+                        decoration: InputDecoration(
+                            labelText: checkLanguageCondition()
+                                ? 'Medications'
+                                : 'ಔಷಧಿಗಳು'),
                         onChanged: (v) => medical.medications = v,
                       ),
                       TextFormField(
                         initialValue: medical.doctorName,
-                        decoration:
-                            const InputDecoration(labelText: 'Doctor Name'),
+                        decoration: InputDecoration(
+                            labelText: checkLanguageCondition()
+                                ? 'Doctor Name'
+                                : 'ವೈದ್ಯರ ಹೆಸರು'),
                         onChanged: (v) => medical.doctorName = v,
                       ),
                       TextFormField(
                         initialValue: medical.doctorPhone,
-                        decoration:
-                            const InputDecoration(labelText: 'Doctor Phone'),
+                        decoration: InputDecoration(
+                            labelText: checkLanguageCondition()
+                                ? 'Doctor Phone'
+                                : "ವೈದ್ಯರ ಫೋನ್"),
                         onChanged: (v) => medical.doctorPhone = v,
                       ),
                       const SizedBox(height: 8),
@@ -1118,120 +1244,91 @@ class _SettingsPageState extends State<SettingsPage> {
                           await _saveMedical();
                         },
                         icon: const Icon(Icons.save),
-                        label: const Text('Save Medical Info'),
+                        label: Text(checkLanguageCondition()
+                            ? 'Save Medical Info'
+                            : "ವೈದ್ಯಕೀಯ ಮಾಹಿತಿಯನ್ನು ಉಳಿಸಿ"),
                       ),
                     ],
+                  ),
+                ),
+
+                ElevatedButton(
+                  child: const Text("Open Debug Page"),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const PreferencesDebugPage()),
+                    );
+                  },
+                ),
+
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    // backgroundColor: Colors.red,
+                    minimumSize: const Size.fromHeight(50),
+                  ),
+                  onPressed: () => _confirmDeleteAll(context),
+                  icon: const Icon(Icons.delete_forever),
+                  label: const Text(
+                    "Delete All Preferences",
+                    style: TextStyle(fontSize: 18),
                   ),
                 ),
 
                 // Accessibility & Interaction
-                sectionCard(
-                  title: 'Accessibility & Interaction',
-                  subtitle: 'Customize voice, haptics and shortcuts',
-                  child: Column(
-                    children: [
-                      ListTile(
-                        title: const Text('Voice Speed',
-                            style: TextStyle(fontSize: 18)),
-                        subtitle: Slider(
-                          min: 0.2,
-                          max: 1.0,
-                          value: (prefsMap['voiceSpeed'] ?? 0.45) as double,
-                          onChanged: (v) {
-                            setState(() => prefsMap['voiceSpeed'] = v);
-                            tts.setSpeechRate(v);
-                            _savePrefs();
-                          },
-                        ),
-                      ),
-                      SwitchListTile(
-                        title: const Text('Haptic Feedback (Vibrate)'),
-                        value: prefsMap['haptics'] ?? true,
-                        onChanged: (v) {
-                          setState(() => prefsMap['haptics'] = v);
-                          _savePrefs();
-                        },
-                      ),
-                      ListTile(
-                        title: const Text('Default Language',
-                            style: TextStyle(fontSize: 18)),
-                        subtitle: Text(prefsMap['language'] ?? 'en-US'),
-                        trailing: DropdownButton<String>(
-                          value: prefsMap['language'] ?? 'en-US',
-                          items: const ['en-US', 'hi-IN']
-                              .map((e) =>
-                                  DropdownMenuItem(value: e, child: Text(e)))
-                              .toList(),
-                          onChanged: (v) async {
-                            setState(() => prefsMap['language'] = v);
-                            await tts.setLanguage(v!);
-                            _savePrefs();
-                          },
-                        ),
-                      ),
-                      ElevatedButton.icon(
-                        onPressed: () async {
-                          await tts.speak(
-                              'This is a voice test at your configured speed');
-                        },
-                        icon: const Icon(Icons.volume_up),
-                        label: const Text('Voice Test'),
-                      ),
-                    ],
-                  ),
-                ),
 
                 // Security & Backup
-                sectionCard(
-                  title: 'Security & Backup',
-                  subtitle: 'PIN lock and export/import preferences',
-                  child: Column(
-                    children: [
-                      FutureBuilder<String?>(
-                        future: store.getPin(),
-                        builder: (ctx, snap) {
-                          final hasPin = snap.data != null;
-                          return ListTile(
-                            title: Text(
-                                hasPin ? 'Change / Remove PIN' : 'Set PIN',
-                                style: const TextStyle(fontSize: 18)),
-                            trailing: ElevatedButton(
-                              onPressed: hasPin ? _removePin : _setPin,
-                              child: Text(hasPin ? 'Remove PIN' : 'Set PIN'),
-                            ),
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 8),
-                      ElevatedButton.icon(
-                        onPressed: () async {
-                          // Export preferences as JSON text (placeholder)
-                          final export = jsonEncode({
-                            'contacts':
-                                contacts.map((e) => e.toJson()).toList(),
-                            'medical': medical.toJson(),
-                            'prefs': prefsMap,
-                          });
-                          // TODO: save to file or share via share plugin
-                          await tts.speak('Preferences exported to clipboard');
-                          Clipboard.setData(ClipboardData(text: export));
-                        },
-                        icon: const Icon(Icons.upload_file),
-                        label: const Text('Export Preferences'),
-                      ),
-                      const SizedBox(height: 8),
-                      ElevatedButton.icon(
-                        onPressed: () async {
-                          // TODO: implement import from JSON
-                          await tts.speak(
-                              'Import not implemented. Use export/import flow.');
-                        },
-                        icon: const Icon(Icons.download),
-                        label: const Text('Import Preferences'),
-                      ),
-                    ],
-                  ),
-                ),
+                // sectionCard(
+                //   title: 'Security & Backup',
+                //   subtitle: 'PIN lock and export/import preferences',
+                //   child: Column(
+                //     children: [
+                //       FutureBuilder<String?>(
+                //         future: store.getPin(),
+                //         builder: (ctx, snap) {
+                //           final hasPin = snap.data != null;
+                //           return ListTile(
+                //             title: Text(
+                //                 hasPin ? 'Change / Remove PIN' : 'Set PIN',
+                //                 style: const TextStyle(fontSize: 18)),
+                //             trailing: ElevatedButton(
+                //               onPressed: hasPin ? _removePin : _setPin,
+                //               child: Text(hasPin ? 'Remove PIN' : 'Set PIN'),
+                //             ),
+                //           );
+                //         },
+                //       ),
+                //       const SizedBox(height: 8),
+                //       ElevatedButton.icon(
+                //         onPressed: () async {
+                //           // Export preferences as JSON text (placeholder)
+                //           final export = jsonEncode({
+                //             'contacts':
+                //                 contacts.map((e) => e.toJson()).toList(),
+                //             'medical': medical.toJson(),
+                //             'prefs': prefsMap,
+                //           });
+                //           // TODO: save to file or share via share plugin
+                //           await tts.speak('Preferences exported to clipboard');
+                //           Clipboard.setData(ClipboardData(text: export));
+                //         },
+                //         icon: const Icon(Icons.upload_file),
+                //         label: const Text('Export Preferences'),
+                //       ),
+                //       const SizedBox(height: 8),
+                //       ElevatedButton.icon(
+                //         onPressed: () async {
+                //           // TODO: implement import from JSON
+                //           await tts.speak(
+                //               'Import not implemented. Use export/import flow.');
+                //         },
+                //         icon: const Icon(Icons.download),
+                //         label: const Text('Import Preferences'),
+                //       ),
+                //     ],
+                //   ),
+                // ),
 
                 // // Maintenance & Logs
                 // sectionCard(

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:latlong2/latlong.dart';
 import 'package:location/location.dart';
 import 'package:req_demo/pages/Flutter_TTS/tts.dart';
+import 'package:req_demo/pages/Settings/app_settings.dart';
 import 'package:req_demo/pages/Settings/settings_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
@@ -15,11 +16,11 @@ class ContactManager {
     try {
       final prefs = await SharedPreferences.getInstance();
       final raw = prefs.getStringList('emergency_contacts') ?? [];
-      contacts = raw.map((e) => EmergencyContact.fromJson(jsonDecode(e))).toList();
+      contacts =
+          raw.map((e) => EmergencyContact.fromJson(jsonDecode(e))).toList();
       debugPrint("Contacts loaded: ${contacts.length} contact(s)");
       for (var c in contacts) {
-        debugPrint(
-            "  - ${c.name}: Lat=${c.latitude}, Lon=${c.longitude}");
+        debugPrint("  - ${c.name}: Lat=${c.latitude}, Lon=${c.longitude}");
       }
     } catch (e) {
       debugPrint("Error loading contacts: $e");
@@ -57,7 +58,7 @@ class ContactManager {
       contacts[index].latitude = pos.latitude.toString();
       contacts[index].longitude = pos.longitude.toString();
       contacts[index].location = true;
-      
+
       await saveContacts();
       debugPrint(
           "Updated location for ${contacts[index].name}: ${pos.latitude}, ${pos.longitude}");
@@ -68,9 +69,12 @@ class ContactManager {
 
   /// Navigate using Google Maps
   Future<void> navigateToLocation(EmergencyContact c) async {
+    print("COMING");
     try {
       if (c.latitude == null || c.longitude == null) {
-        TTSManager().speak("Location not set for this contact");
+        TTSManager().speak(await checkLanguageCondition()
+            ? "Location not set for this contact"
+            : "ಈ ಸಂಪರ್ಕಕ್ಕೆ ಸ್ಥಳವನ್ನು ಹೊಂದಿಸಲಾಗಿಲ್ಲ.");
         debugPrint("No location set for ${c.name}");
         return;
       }
@@ -87,21 +91,25 @@ class ContactManager {
       );
 
       if (await canLaunchUrl(uri)) {
+        await TTSManager().speak(await checkLanguageCondition()
+            ? "Navigation started to the selected location."
+            : "ಆಯ್ಕೆ ಮಾಡಿದ ಸ್ಥಳಕ್ಕೆ ನ್ಯಾವಿಗೇಷನ್ ಪ್ರಾರಂಭವಾಗಿದೆ.");
+
         await launchUrl(
           uri,
           mode: LaunchMode.externalApplication,
         );
-
-        await Future.delayed(const Duration(seconds: 3), () {
-          TTSManager().speak("Navigation started to the selected location.");
-        });
       } else {
         debugPrint("Could not launch Google Maps");
-        TTSManager().speak("Could not open navigation. Please try again.");
+        TTSManager().speak(await checkLanguageCondition()
+            ? "Could not open navigation. \nPlease try again."
+            : "ನ್ಯಾವಿಗೇಷನ್ ತೆರೆಯಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.");
       }
     } catch (e) {
       debugPrint("Error navigating to location: $e");
-      TTSManager().speak("An error occurred while starting navigation.");
+      TTSManager().speak(await checkLanguageCondition()
+          ? "An error occurred while starting navigation."
+          : "ನ್ಯಾವಿಗೇಷನ್ ಪ್ರಾರಂಭಿಸುವಾಗ ದೋಷ ಸಂಭವಿಸಿದೆ.");
     }
   }
 
@@ -109,7 +117,9 @@ class ContactManager {
   Future<void> shareLocationWithContact(int contactIndex) async {
     try {
       if (contactIndex < 0 || contactIndex >= contacts.length) {
-        TTSManager().speak("Invalid contact option");
+        TTSManager().speak(await checkLanguageCondition()
+            ? "Invalid contact option"
+            : "ಅಮಾನ್ಯ ಸಂಪರ್ಕ ಆಯ್ಕೆ.");
         return;
       }
 
@@ -117,7 +127,9 @@ class ContactManager {
       final phoneNumber = contact.phone.replaceAll(RegExp(r'[^\d+]'), '');
 
       if (phoneNumber.isEmpty) {
-        TTSManager().speak("Phone number not available for ${contact.name}");
+        TTSManager().speak(await checkLanguageCondition()
+            ? "Phone number not available for ${contact.name}"
+            : "ಈ ಸಂಪರ್ಕಕ್ಕೆ ಫೋನ್ ಸಂಖ್ಯೆ ಲಭ್ಯವಿಲ್ಲ.");
         return;
       }
 
@@ -128,7 +140,9 @@ class ContactManager {
       final currentLon = currentLocation.longitude;
 
       if (currentLat == null || currentLon == null) {
-        TTSManager().speak("Unable to fetch your current location");
+        TTSManager().speak(await checkLanguageCondition()
+            ? "Unable to fetch your current location"
+            : "ನಿಮ್ಮ ಪ್ರಸ್ತುತ ಸ್ಥಳವನ್ನು ಪಡೆಯಲು ಸಾಧ್ಯವಾಗುತ್ತಿಲ್ಲ");
         return;
       }
 
@@ -143,22 +157,30 @@ class ContactManager {
       if (await canLaunchUrl(whatsappUri)) {
         await launchUrl(whatsappUri);
         debugPrint("Location shared with ${contact.name} via WhatsApp");
-        TTSManager().speak("Sharing location with ${contact.name}");
+        TTSManager().speak(await checkLanguageCondition()
+            ? "Sharing your location with ${contact.name} now"
+            : "ನಿಮ್ಮ ಸ್ಥಳವನ್ನು ${contact.name} ರೊಂದಿಗೆ ಹಂಚಿಕೊಳ್ಳಲಾಗುತ್ತಿದೆ.");
       } else {
         // Fallback to SMS
-        final Uri smsUri =
-            Uri.parse("sms:$phoneNumber?body=${Uri.encodeComponent(shareMessage)}");
+        final Uri smsUri = Uri.parse(
+            "sms:$phoneNumber?body=${Uri.encodeComponent(shareMessage)}");
         if (await canLaunchUrl(smsUri)) {
           await launchUrl(smsUri);
           debugPrint("Location shared with ${contact.name} via SMS");
-          TTSManager().speak("Sharing location with ${contact.name}");
+          TTSManager().speak(await checkLanguageCondition()
+              ? "Sharing your location with ${contact.name} now"
+              : "ನಿಮ್ಮ ಸ್ಥಳವನ್ನು ${contact.name} ರೊಂದಿಗೆ ಹಂಚಿಕೊಳ್ಳಲಾಗುತ್ತಿದೆ.");
         } else {
-          TTSManager().speak("Could not share location. No messaging app available");
+          TTSManager().speak(await checkLanguageCondition()
+              ? "Could not share location. No messaging app available"
+              : "ಸ್ಥಳ ಹಂಚಿಕೊಳ್ಳಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ಯಾವುದೇ ಸಂದೇಶ ಕಳುಹಿಸುವ ಅಪ್ಲಿಕೇಶನ್ ಲಭ್ಯವಿಲ್ಲ");
         }
       }
     } catch (e) {
       debugPrint("Error sharing location: $e");
-      TTSManager().speak("An error occurred while sharing your location");
+      TTSManager().speak(await checkLanguageCondition()
+          ? "An error occurred while sharing your location"
+          : "ನಿಮ್ಮ ಸ್ಥಳವನ್ನು ಹಂಚಿಕೊಳ್ಳುವಾಗ ದೋಷ ಸಂಭವಿಸಿದೆ");
     }
   }
 
@@ -219,7 +241,7 @@ class ContactManager {
   /// Get list of contacts as comma-separated string (for TTS)
   String getContactsAsString() {
     if (contacts.isEmpty) return "No contacts available";
-    
+
     StringBuffer sb = StringBuffer();
     for (int i = 0; i < contacts.length; i++) {
       sb.write("Option ${i + 1}: ${contacts[i].name}");
