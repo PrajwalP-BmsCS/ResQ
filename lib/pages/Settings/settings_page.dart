@@ -18,6 +18,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_phone_direct_caller/flutter_phone_direct_caller.dart';
 // import 'package:geolocator/geolocator.dart';
 import 'package:location/location.dart';
+import 'package:image/image.dart' as img;
 
 // ------------------------- Models -------------------------
 class EmergencyContact {
@@ -565,11 +566,23 @@ class _SettingsPageState extends State<SettingsPage> {
         throw Exception('Failed to capture from ESP32');
       }
 
+      // save image with unique filename
       final Directory tempDir = await getTemporaryDirectory();
       final String filePath =
-          '${tempDir.path}/obstacle_${DateTime.now().millisecondsSinceEpoch}.jpg';
+          '${tempDir.path}/capture_${DateTime.now().millisecondsSinceEpoch}.jpg';
+
+// ⬅️ Decode image bytes
+      final original = img.decodeImage(response.bodyBytes);
+
+// ⬅️ Rotate image 90 degrees
+      final rotated = img.copyRotate(original!, angle: 90);
+
+// ⬅️ Convert back to bytes
+      final rotatedBytes = img.encodeJpg(rotated);
+
+// write rotated image to file
       final File imageFile = File(filePath);
-      await imageFile.writeAsBytes(response.bodyBytes);
+      await imageFile.writeAsBytes(rotatedBytes);
 
       final List<dynamic> result =
           await platform.invokeMethod('runYOLO', {'path': imageFile.path});
@@ -598,16 +611,16 @@ class _SettingsPageState extends State<SettingsPage> {
   void _startContinuousObstacleDetection() {
     _stopContinuousObstacleDetection(); // just to reset
     continuousObstacleDetection = true;
-    obstacleTimer = Timer.periodic(const Duration(seconds: 8), (timer) async {
+    obstacleTimer = Timer.periodic(const Duration(seconds: 2), (timer) async {
       if (!continuousObstacleDetection) {
         timer.cancel();
         return;
       }
       await _detectObstacle(speakResults: false);
 
-      if (lastDetections.contains("car")) {
+      if (lastDetections.contains("car") || lastDetections.contains("Car")) {
         await tts.speak("Car detected ahead, please be careful");
-      } else if (lastDetections.contains("truck")) {
+      } else if (lastDetections.contains("truck") || lastDetections.contains("Truck")) {
         await tts.speak("Truck detected ahead, please be careful");
       }
     });

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
 // Base URL
-const String baseUrl = "http://192.168.0.104:8000";
+const String baseUrl = "http://10.173.138.153:8000";
 
 // esp32 base URL
-const String espBaseUrl = "http://10.46.130.101";
+const String espBaseUrl = "http://10.173.138.101";
 
 
 

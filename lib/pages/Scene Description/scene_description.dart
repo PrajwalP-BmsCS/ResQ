@@ -33,10 +33,11 @@ class _SceneDescriptionScreenState extends State<SceneDescriptionScreen> {
   void initState() {
     super.initState();
 
-    // _captureFromESP32(); // Automatically capture when screen opens
+    _captureFromESP32(); // Automatically capture when screen opens
   }
 
   Future<void> _captureFromESP32() async {
+    
     setState(() {
       _isProcessing = true;
       _description = null;

@@ -553,7 +553,7 @@ class HomePageState extends State<HomePage>
   Future<bool> setCounter() async {
     _cancelEmergency = false;
     _emergencyInProgress = true;
-    final seconds = 3;
+    final seconds = 6;
 
     // Speak initial message
     await TTSManager().speak(checkLanguageCondition()
@@ -837,10 +837,12 @@ class HomePageState extends State<HomePage>
 
         case "scene_description":
           if (res) {
-            // Navigator.push(
-            //     context,
-            //     MaterialPageRoute(
-            //         builder: (context) => SceneDescriptionScreen(language: preffered_lang ?? "English",)));
+            Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => SceneDescriptionScreen(
+                          language: preffered_lang ?? "English",
+                        )));
             await TTSManager().speak(checkLanguageCondition()
                 ? "Starting to scene description now.."
                 : "ಈಗ ದೃಶ್ಯ ವಿವರಣೆಯನ್ನು ಪ್ರಾರಂಭಿಸುತ್ತಿದ್ದೇನೆ..");
@@ -848,37 +850,39 @@ class HomePageState extends State<HomePage>
           break;
 
         case "object_detection":
-          if (res) {
-            // Navigator.push(
-            //     context,
-            //     MaterialPageRoute(
-            //         builder: (context) => ObjectDetectionScreen(language: preffered_lang ?? "English",)));
-            await TTSManager().speak(checkLanguageCondition()
-                ? "Detecting objects"
-                : "ವಸ್ತುಗಳನ್ನು ಪತ್ತೆಹಚ್ಚುವುದು");
-          }
+          // if (res) {
+          // Navigator.push(
+          //     context,
+          //     MaterialPageRoute(
+          //         builder: (context) => ObjectDetectionScreen(language: preffered_lang ?? "English",)));
+          await TTSManager().speak(checkLanguageCondition()
+              ? "Detecting objects"
+              : "ವಸ್ತುಗಳನ್ನು ಪತ್ತೆಹಚ್ಚುವುದು");
+          // }
 
           break;
 
         case "ocr":
-          if (res) {
-            // Navigator.push(context,
-            //     MaterialPageRoute(builder: (context) => OCRHomePage(language: preffered_lang ?? "English",)));
-            await TTSManager().speak(checkLanguageCondition()
-                ? "Starting text recognition"
-                : "ಪಠ್ಯ ಗುರುತಿಸುವಿಕೆಯನ್ನು ಪ್ರಾರಂಭಿಸಲಾಗುತ್ತಿದೆ");
-          }
+          // if (res) {
+          // Navigator.push(context,
+          //     MaterialPageRoute(builder: (context) => OCRHomePage(language: preffered_lang ?? "English",)));
+          await TTSManager().speak(checkLanguageCondition()
+              ? "Starting text recognition"
+              : "ಪಠ್ಯ ಗುರುತಿಸುವಿಕೆಯನ್ನು ಪ್ರಾರಂಭಿಸಲಾಗುತ್ತಿದೆ");
+          // }
           break;
 
         case "navigation":
-          TTSManager().speak(checkLanguageCondition()
-              ? "Navigating to navigation screen"
-              : "ನ್ಯಾವಿಗೇಷನ್ ಸ್ಕ್ರೀನ್‌ಗೆ ನ್ಯಾವಿಗೇಟ್ ಮಾಡಲಾಗುತ್ತಿದೆ");
-          Navigator.push(
-              context,
-              MaterialPageRoute(
-                  builder: (context) => WalkingRouteMapPage(
-                      language: preffered_lang ?? "English")));
+          if (res) {
+            await TTSManager().speak(checkLanguageCondition()
+                ? "Navigating to navigation screen"
+                : "ನ್ಯಾವಿಗೇಷನ್ ಸ್ಕ್ರೀನ್‌ಗೆ ನ್ಯಾವಿಗೇಟ್ ಮಾಡಲಾಗುತ್ತಿದೆ");
+            Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => WalkingRouteMapPage(
+                        language: preffered_lang ?? "English")));
+          }
           break;
 
         case "list_contacts":
@@ -1285,6 +1289,7 @@ class HomePageState extends State<HomePage>
         final shareMessage = await _getLocationLink();
 
         final seconds = 10;
+        final callSeconds = 6;
         if (shareMessage != null) {
           final Uri whatsappUri = Uri.parse(
               "https://wa.me/$phoneNumber?text=${Uri.encodeComponent(shareMessage)}");
@@ -1295,12 +1300,31 @@ class HomePageState extends State<HomePage>
 
             if (emergency) {
               await TTSManager().speak(checkLanguageCondition()
-                  ? "Location shared with ${final_contact.name}. \n Also in next $seconds seconds a phone call will be initiated, please stay in the APP. "
-                  : "ನಿಮ್ಮ ಸ್ಥಳವನ್ನು ${final_contact.name} ನೊಂದಿಗೆ ಹಂಚಿಕೊಳ್ಳಲಾಗಿದೆ. \n ಮುಂದಿನ $seconds ಸೆಕೆಂಡುಗಳಲ್ಲಿ ಫೋನ್ ಕರೆ ಪ್ರಾರಂಭವಾಗುತ್ತದೆ, ದಯವಿಟ್ಟು APP ನಲ್ಲಿ ಇರಿ.");
+                  ? "Location shared with ${final_contact.name}. \n Also in next $callSeconds seconds a phone call will be initiated, please stay in the APP. "
+                  : "ನಿಮ್ಮ ಸ್ಥಳವನ್ನು ${final_contact.name} ನೊಂದಿಗೆ ಹಂಚಿಕೊಳ್ಳಲಾಗಿದೆ. \n ಮುಂದಿನ ${numbersMap[callSeconds]} ಸೆಕೆಂಡುಗಳಲ್ಲಿ ಫೋನ್ ಕರೆ ಪ್ರಾರಂಭವಾಗುತ್ತದೆ, ದಯವಿಟ್ಟು APP ನಲ್ಲಿ ಇರಿ.");
 
-              await Future.delayed(Duration(seconds: 10), () {
-                _makePhoneCall(1, true, '', {});
-              });
+              for (int second = callSeconds; second > 0; second--) {
+                if (checkLanguageCondition()) {
+                  if (second == callSeconds || second == 1) {
+                  await TTSManager().speak("Calling in $second seconds");
+                }
+                else{
+                  await TTSManager().speak("$second");
+                }
+                } else {
+                  if (second == callSeconds || second == 1) {
+                    await TTSManager().speak(
+                        "ಇನ್ನು ${numbersMap[second]} ಸೆಕೆಂಡುಗಳು ರಲ್ಲಿ ಕರೆ ಮಾಡಲಾಗುತ್ತದೆ");
+                  } else {
+                    await TTSManager().speak("${numbersMap[second]}");
+                  }
+                }
+                await Future.delayed(const Duration(milliseconds: 1000));
+              }
+              _makePhoneCall(1, true, '', {});
+              // await Future.delayed(Duration(seconds: 10), () {
+
+              // });
             } else {
               await TTSManager().speak(checkLanguageCondition()
                   ? "Location shared with ${final_contact.name}."

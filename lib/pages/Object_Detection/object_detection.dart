@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:req_demo/pages/Flutter_STT/language_translation.dart';
 import 'package:req_demo/pages/Flutter_TTS/tts.dart';
 import 'package:req_demo/pages/utils/util.dart';
+import 'package:image/image.dart' as img;
 
 class ObjectDetectionScreen extends StatefulWidget {
   final String language;
@@ -53,8 +54,7 @@ class _ObjectDetectionScreenState extends State<ObjectDetectionScreen> {
 
     try {
       // add timestamp param to force ESP32 refresh
-      final String url =
-          '$esp32Url';
+      final String url = '$esp32Url';
       final response = await http.get(Uri.parse(url));
       print("📸 Fetching from $url");
 
@@ -63,11 +63,33 @@ class _ObjectDetectionScreenState extends State<ObjectDetectionScreen> {
       }
 
       // save image with unique filename
+      // final Directory tempDir = await getTemporaryDirectory();
+      // final String filePath =
+      //     '${tempDir.path}/capture_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      // final File imageFile = File(filePath);
+      // await imageFile.writeAsBytes(response.bodyBytes);
+
+      // save image with unique filename
       final Directory tempDir = await getTemporaryDirectory();
       final String filePath =
           '${tempDir.path}/capture_${DateTime.now().millisecondsSinceEpoch}.jpg';
+
+// ⬅️ Decode image bytes
+      final original = img.decodeImage(response.bodyBytes);
+
+// ⬅️ Rotate image 90 degrees
+      final rotated = img.copyRotate(original!, angle: 90);
+
+// ⬅️ Convert back to bytes
+      final rotatedBytes = img.encodeJpg(rotated);
+
+// write rotated image to file
       final File imageFile = File(filePath);
-      await imageFile.writeAsBytes(response.bodyBytes);
+      await imageFile.writeAsBytes(rotatedBytes);
+
+      setState(() {
+        _capturedImage = imageFile;
+      });
 
       setState(() {
         _capturedImage = imageFile;
@@ -85,7 +107,7 @@ class _ObjectDetectionScreenState extends State<ObjectDetectionScreen> {
       // 🗣️ Speak results
       if (result.isNotEmpty) {
         String detectedObjects = result.join(", ");
-        detectedObjects += "I am seeing" + detectedObjects + "in front me";
+        detectedObjects = "I am seeing " + detectedObjects + " in front of me";
 
         if (widget.language != "English") {
           detectedObjects = (await TranslationService.translateWithMyMemory(
