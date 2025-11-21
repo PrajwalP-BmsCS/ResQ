@@ -91,10 +91,6 @@ class _ObjectDetectionScreenState extends State<ObjectDetectionScreen> {
         _capturedImage = imageFile;
       });
 
-      setState(() {
-        _capturedImage = imageFile;
-      });
-
       // 🚀 Run YOLO ONNX inference
       final List<dynamic> result =
           await platform.invokeMethod('runYOLO', {'path': imageFile.path});

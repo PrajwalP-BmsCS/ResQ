@@ -202,6 +202,7 @@ From the following text, extract exactly ONE intent from these twelve options:
 10. yes_no_response
 11. emergency
 12. settings
+13. navigate_to_home
 
 
 Text: "{text}"
@@ -234,6 +235,7 @@ INTENT RULES:
 - If they want directions, movement, or path guidance → use "navigation"
 - If the user asks for emergency or alert to family → use "emergency" 
 - If the user asks for settings or take him to settings → use "settings"
+- If the user asks for navigation to home or house → use "navigate_to_home"
 
 YES/NO RESPONSE RULES:
 - If the user simply says "yes", "yeah", "sure", "okay", "yep", "absolutely" → use "yes_no_response" with response: "yes"
@@ -368,68 +370,74 @@ EXAMPLES:
 29. User: "No, don't share"
     Response: {{"intent": "yes_no_response", "listen_back": false, "contact_option": null, "contact_name": null, "want_to_call": false, "want_to_share": false, "response": "no"}}
 
-30. User: "Navigate to home"
-    Response: {{"intent": "navigation", "listen_back": false, "contact_option": null, "contact_name": null, "want_to_call": false, "want_to_share": false, "response": null}}
-
-31. User: "I need help"
+30. User: "I need help"
     Response: {{"intent": "emergency", "listen_back": false, "contact_option": 1, "contact_name": null, "want_to_call": true, "want_to_share": true, "response": null}}
 
-32. User: "Help me"
+31. User: "Help me"
     Response: {{"intent": "emergency", "listen_back": false, "contact_option": 1, "contact_name": null, "want_to_call": true, "want_to_share": true, "response": null}}
 
-33. User: "It's an emergency"
+32. User: "It's an emergency"
     Response: {{"intent": "emergency", "listen_back": false, "contact_option": 1, "contact_name": null, "want_to_call": true, "want_to_share": true, "response": null}}
 
-34. User: "ALERT FAMILY"
+33. User: "ALERT FAMILY"
     Response: {{"intent": "emergency", "listen_back": false, "contact_option": 1, "contact_name": null, "want_to_call": true, "want_to_share": true, "response": null}}
 
-35. User: "Call Pradeep"
+34. User: "Call Pradeep"
     Response: {{"intent": "call_contact", "listen_back": false, "contact_option": null, "contact_name": "Pradeep", "want_to_call": true, "want_to_share": false, "response": null}}
 
-36. User: "Call home"
+35. User: "Call home"
     Response: {{"intent": "call_contact", "listen_back": false, "contact_option": null, "contact_name": "home", "want_to_call": true, "want_to_share": false, "response": null}}
 
-37. User: "Dial mom"
+36. User: "Dial mom"
     Response: {{"intent": "call_contact", "listen_back": false, "contact_option": null, "contact_name": "mom", "want_to_call": true, "want_to_share": false, "response": null}}
 
-38. User: "Call John please"
+37. User: "Call John please"
     Response: {{"intent": "call_contact", "listen_back": false, "contact_option": null, "contact_name": "John", "want_to_call": true, "want_to_share": false, "response": null}}
 
-39. User: "Phone dad"
+38. User: "Phone dad"
     Response: {{"intent": "call_contact", "listen_back": false, "contact_option": null, "contact_name": "dad", "want_to_call": true, "want_to_share": false, "response": null}}
 
-40. User: "Call doctor Smith"
+39. User: "Call doctor Smith"
     Response: {{"intent": "call_contact", "listen_back": false, "contact_option": null, "contact_name": "doctor Smith", "want_to_call": true, "want_to_share": false, "response": null}}
 
-41. User: "Ring my brother"
+40. User: "Ring my brother"
     Response: {{"intent": "call_contact", "listen_back": false, "contact_option": null, "contact_name": "my brother", "want_to_call": true, "want_to_share": false, "response": null}}
 
-42. User: "Call anyone whose name is Rajesh"
+41. User: "Call anyone whose name is Rajesh"
     Response: {{"intent": "call_contact", "listen_back": false, "contact_option": null, "contact_name": "Rajesh", "want_to_call": true, "want_to_share": false, "response": null}}
 
-43. User: "Share location with Pradeep"
+42. User: "Share location with Pradeep"
     Response: {{"intent": "share_location", "listen_back": false, "contact_option": null, "contact_name": "Pradeep", "want_to_call": false, "want_to_share": true, "response": null}}
 
-44. User: "Share my location with home"
+43. User: "Share my location with home"
     Response: {{"intent": "share_location", "listen_back": false, "contact_option": null, "contact_name": "home", "want_to_call": false, "want_to_share": true, "response": null}}
 
-45. User: "Send location to mom"
+44. User: "Send location to mom"
     Response: {{"intent": "share_location", "listen_back": false, "contact_option": null, "contact_name": "mom", "want_to_call": false, "want_to_share": true, "response": null}}
 
-46. User: "Share where I am with John"
+45. User: "Share where I am with John"
     Response: {{"intent": "share_location", "listen_back": false, "contact_option": null, "contact_name": "John", "want_to_call": false, "want_to_share": true, "response": null}}
 
-47. User: "Send my location to Prajwal"
+46. User: "Send my location to Prajwal"
     Response: {{"intent": "share_location", "listen_back": false, "contact_option": null, "contact_name": "Prajwal", "want_to_call": false, "want_to_share": true, "response": null}}
 
-48. User: "Share with doctor"
+47. User: "Share with doctor"
     Response: {{"intent": "share_location", "listen_back": false, "contact_option": null, "contact_name": "doctor", "want_to_call": false, "want_to_share": true, "response": null}}
 
-49. User: "Send location to my brother"
+48. User: "Send location to my brother"
     Response: {{"intent": "share_location", "listen_back": false, "contact_option": null, "contact_name": "my brother", "want_to_call": false, "want_to_share": true, "response": null}}
 
-50. User: "Share my location with anyone named Kumar"
+49. User: "Share my location with anyone named Kumar"
     Response: {{"intent": "share_location", "listen_back": false, "contact_option": null, "contact_name": "Kumar", "want_to_call": false, "want_to_share": true, "response": null}}
+
+50. User: "Navigate to my home"
+    Response: {{"intent": "navigate_to_home", "listen_back": false, "contact_option": null, "contact_name": null, "want_to_call": false, "want_to_share": false, "response": null}}
+
+51. User: "Navigate to home"
+    Response: {{"intent": "navigate_to_home", "listen_back": false, "contact_option": null, "contact_name": null, "want_to_call": false, "want_to_share": false, "response": null}}
+
+52. User: "Can you take me to my home?"
+    Response: {{"intent": "navigate_to_home", "listen_back": false, "contact_option": null, "contact_name": null, "want_to_call": false, "want_to_share": false, "response": null}}
 """
     
 #     prompt = f"""

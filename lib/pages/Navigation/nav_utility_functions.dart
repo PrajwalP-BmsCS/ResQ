@@ -68,7 +68,20 @@ class ContactManager {
   }
 
   /// Navigate using Google Maps
-  Future<void> navigateToLocation(EmergencyContact c) async {
+  Future<void> navigateToLocation(EmergencyContact c, bool home_status) async {
+    if (home_status) {
+      for (var contact in contacts) {
+        debugPrint(
+            "Contact123: ${contact.name.length}, Lat123: ${contact.latitude}, Lon123: ${contact.longitude}");
+        if (contact.name.toLowerCase().contains("home") ||
+            contact.name.toLowerCase().contains("house")) {
+          print("HOME NAVIGATION");
+          c = contact;
+          break;
+        }
+      }
+    }
+
     print("COMING");
     try {
       if (c.latitude == null || c.longitude == null) {

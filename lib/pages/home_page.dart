@@ -789,6 +789,17 @@ class HomePageState extends State<HomePage>
     );
   }
 
+  void navigateToHome(){
+    // Only navigate if we have at least one contact; otherwise inform the user.
+    if (contactManager.contacts.isNotEmpty) {
+      contactManager.navigateToLocation(contactManager.contacts[0], true);
+    } else {
+      TTSManager().speak(checkLanguageCondition()
+          ? "No contacts available to navigate to."
+          : "ನ್ಯಾವಿಗೇಟ್ ಮಾಡಲು ಸಂಪರ್ಕಗಳು ಲಭ್ಯವಿಲ್ಲ.");
+    }
+  }
+
   void navigateToNextScreen(
     String intent,
     bool listen_status,
@@ -851,10 +862,12 @@ class HomePageState extends State<HomePage>
 
         case "object_detection":
           // if (res) {
-          // Navigator.push(
-          //     context,
-          //     MaterialPageRoute(
-          //         builder: (context) => ObjectDetectionScreen(language: preffered_lang ?? "English",)));
+          Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (context) => ObjectDetectionScreen(
+                        language: preffered_lang ?? "English",
+                      )));
           await TTSManager().speak(checkLanguageCondition()
               ? "Detecting objects"
               : "ವಸ್ತುಗಳನ್ನು ಪತ್ತೆಹಚ್ಚುವುದು");
@@ -864,8 +877,12 @@ class HomePageState extends State<HomePage>
 
         case "ocr":
           // if (res) {
-          // Navigator.push(context,
-          //     MaterialPageRoute(builder: (context) => OCRHomePage(language: preffered_lang ?? "English",)));
+          Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (context) => OCRHomePage(
+                        language: preffered_lang ?? "English",
+                      )));
           await TTSManager().speak(checkLanguageCondition()
               ? "Starting text recognition"
               : "ಪಠ್ಯ ಗುರುತಿಸುವಿಕೆಯನ್ನು ಪ್ರಾರಂಭಿಸಲಾಗುತ್ತಿದೆ");
@@ -885,6 +902,13 @@ class HomePageState extends State<HomePage>
           }
           break;
 
+        case "navigate_to_home":
+          if (res) {
+            print("Navigating to home contact");
+            navigateToHome();
+          }
+          break;
+
         case "list_contacts":
           _handleListContacts();
           break;
@@ -901,6 +925,14 @@ class HomePageState extends State<HomePage>
         case "share_location":
           _handleShareLocation(
               listen_status, contact_option, want_to_share, contactName);
+          break;
+
+        case "settings":
+          Navigator.push(
+              context, MaterialPageRoute(builder: (context) => SettingsPage()));
+          await TTSManager().speak(checkLanguageCondition()
+              ? "Navigating to settings page"
+              : "ಸೆಟ್ಟಿಂಗ್‌ಗಳ ಪುಟಕ್ಕೆ ನ್ಯಾವಿಗೇಟ್ ಮಾಡಲಾಗುತ್ತಿದೆ");
           break;
 
         case "emergency":
@@ -1306,11 +1338,10 @@ class HomePageState extends State<HomePage>
               for (int second = callSeconds; second > 0; second--) {
                 if (checkLanguageCondition()) {
                   if (second == callSeconds || second == 1) {
-                  await TTSManager().speak("Calling in $second seconds");
-                }
-                else{
-                  await TTSManager().speak("$second");
-                }
+                    await TTSManager().speak("Calling in $second seconds");
+                  } else {
+                    await TTSManager().speak("$second");
+                  }
                 } else {
                   if (second == callSeconds || second == 1) {
                     await TTSManager().speak(

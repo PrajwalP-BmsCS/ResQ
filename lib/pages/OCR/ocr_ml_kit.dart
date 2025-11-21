@@ -6,6 +6,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:req_demo/pages/Flutter_TTS/tts.dart';
 import 'package:req_demo/pages/utils/util.dart';
+import 'package:image/image.dart' as img;
 
 class OCRHomePage extends StatefulWidget {
   final String language;
@@ -67,14 +68,26 @@ class _OCRHomePageState extends State<OCRHomePage> {
       final response = await http.get(url);
 
       if (response.statusCode == 200) {
-        final tempDir = await getTemporaryDirectory();
-        final file = File(
-            '${tempDir.path}/esp32_image_${DateTime.now().millisecondsSinceEpoch}.jpg');
-        await file.writeAsBytes(response.bodyBytes);
+        final Directory tempDir = await getTemporaryDirectory();
+      final String filePath =
+          '${tempDir.path}/capture_${DateTime.now().millisecondsSinceEpoch}.jpg';
 
-        setState(() => _selectedImage = file);
+// ⬅️ Decode image bytes
+      final original = img.decodeImage(response.bodyBytes);
 
-        await _processImage(file);
+// ⬅️ Rotate image 90 degrees
+      final rotated = img.copyRotate(original!, angle: 90);
+
+// ⬅️ Convert back to bytes
+      final rotatedBytes = img.encodeJpg(rotated);
+
+// write rotated image to file
+      final File imageFile = File(filePath);
+      await imageFile.writeAsBytes(rotatedBytes);
+
+        setState(() => _selectedImage = imageFile);
+        
+        await _processImage(imageFile);
       } else {
         throw Exception('ESP32 responded with ${response.statusCode}');
       }

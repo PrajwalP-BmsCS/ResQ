@@ -9,6 +9,7 @@ import 'package:req_demo/pages/Flutter_STT/language_translation.dart';
 import 'package:req_demo/pages/Flutter_TTS/tts.dart';
 import 'package:req_demo/pages/Settings/app_settings.dart';
 import 'package:req_demo/pages/utils/util.dart';
+import 'package:image/image.dart' as img;
 
 class SceneDescriptionScreen extends StatefulWidget {
   final String language;
@@ -53,12 +54,22 @@ class _SceneDescriptionScreenState extends State<SceneDescriptionScreen> {
       if (response.statusCode != 200) throw Exception("Failed to load image");
 
       // 📂 Save image locally
-      final bytes = response.bodyBytes;
-      final tempDir = await getTemporaryDirectory();
-      final filePath =
-          "${tempDir.path}/scene_${DateTime.now().millisecondsSinceEpoch}.jpg";
-      final imageFile = File(filePath);
-      await imageFile.writeAsBytes(bytes);
+      final Directory tempDir = await getTemporaryDirectory();
+      final String filePath =
+          '${tempDir.path}/capture_${DateTime.now().millisecondsSinceEpoch}.jpg';
+
+// ⬅️ Decode image bytes
+      final original = img.decodeImage(response.bodyBytes);
+
+// ⬅️ Rotate image 90 degrees
+      final rotated = img.copyRotate(original!, angle: 90);
+
+// ⬅️ Convert back to bytes
+      final rotatedBytes = img.encodeJpg(rotated);
+
+// write rotated image to file
+      final File imageFile = File(filePath);
+      await imageFile.writeAsBytes(rotatedBytes);
 
       setState(() => _capturedImage = imageFile);
 

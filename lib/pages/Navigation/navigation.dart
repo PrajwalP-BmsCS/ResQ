@@ -367,7 +367,7 @@ class _WalkingRouteMapPageState extends State<WalkingRouteMapPage> {
         _polylinePoints = [];
       });
     }
-    contactManager.navigateToLocation(c);
+    contactManager.navigateToLocation(c, false);
   }
 
   Widget sectionCard(
