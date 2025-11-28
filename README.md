@@ -524,22 +524,7 @@ ResQ/
 <section id="conclusion">
   <h2>Conclusion</h2>
   <p>
-    The development of <strong>ResQ</strong> marks an important step toward transforming the way students engage with and retain academic content. 
-    By leveraging <strong>AI-powered transcription</strong> and <strong>natural language processing</strong>, this project demonstrates how technology can bridge the gap 
-    between real-time learning and effective study preparation. The application automates the process of note generation, 
-    question creation, and knowledge reinforcement — providing students with a smart, accessible, and personalized learning experience.
-  </p>
-  <p>
-    This project was undertaken as part of a <strong>one-month virtual internship</strong> organized by 
-    <strong>Edunet Foundation</strong> in collaboration with <strong>IBM SkillsBuild</strong>. 
-    The mentorship and structured guidance provided through this initiative offered valuable insights into 
-    <strong>AI integration, API management, and full-stack application development</strong>. 
-    Through this experience, the project team was able to combine innovation with practical learning, contributing meaningfully 
-    to the mission of advancing digital education.
-  </p>
-  <p>
-    <em>Special thanks to Edunet Foundation and IBM SkillsBuild for their continuous support and for providing a platform 
-    that encourages young developers to explore impactful real-world applications of technology.</em>
+   ResQ Lens represents a practical, human-centered assistive technology designed to empower visually impaired individuals with enhanced perception, awareness, and independence. By integrating ESP32-CAM based edge processing with an intelligent mobile application, the system provides essential features such as scene description, object recognition, text reading, and situational navigation without heavy dependence on cloud services. Its modular design, low-cost hardware, and real-time audio feedback make it both accessible and scalable for everyday use. Ultimately, ResQ Lens demonstrates how affordable innovation, thoughtful engineering, and user-centric design can work together to significantly improve the quality of life for people with vision impairments.
   </p>
 </section>
 
