@@ -432,11 +432,7 @@ ResQ/
 ├── ResQ/                # Flutter Frontend
 │   ├── lib/
 │   │   ├── main.dart          # App entry point
-│   │   ├── landing_page.dart  # Onboarding screen
-│   │   ├── notes_generator.dart  # Audio upload, notes display, Q&A interactive widget
-│   │   ├── pdf.dart           # PDF generation service
-│   │   └── utils/
-│   │       └── util.dart      # API configuration
+│   │   ├── pages              # Features Screens
 │   ├── pubspec.yaml           # Flutter dependencies
 │   ├── android/               # Android-specific config
 │   ├── ios/                   # iOS-specific config
