@@ -1,3 +1,20 @@
+buildscript {
+    ext {
+        kotlin_version = '1.9.22'
+        compileSdkVersion = 35
+        targetSdkVersion = 35
+        minSdkVersion = 21
+    }
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.1.2'
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+    }
+}
+
 allprojects {
     repositories {
         google()
@@ -14,18 +31,6 @@ subprojects {
 subprojects {
     project.evaluationDependsOn(":app")
 }
-
-// 👇 Add this block to fix geolocator_android compileSdk issue
-subprojects {
-    if (project.name.contains("geolocator_android")) {
-        project.plugins.withId("com.android.library") {
-            project.android {
-                compileSdk = 35
-            }
-        }
-    }
-}
-
 
 tasks.register("clean", Delete) {
     delete rootProject.buildDir

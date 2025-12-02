@@ -2,9 +2,8 @@ import 'package:flutter/material.dart';
 
 // Base URL
 const String baseUrl = "http://192.168.0.104:8000";
-
 // esp32 base URL
-const String espBaseUrl = "http://10.173.138.101";
+const String espBaseUrl = "http://10.173.138.85";
 
 
 
@@ -12,7 +11,7 @@ void showStatusSnackBar(BuildContext context, String message, String status) {
   // Set icon and color based on status
   IconData iconData;
   Color backgroundColor;
-
+  
   switch (status.toLowerCase()) {
     case 'success':
       iconData = Icons.check_circle_outline;

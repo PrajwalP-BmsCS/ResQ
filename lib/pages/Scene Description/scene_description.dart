@@ -94,7 +94,7 @@ class _SceneDescriptionScreenState extends State<SceneDescriptionScreen> {
         final respStr = await response.stream.bytesToString();
         final data = jsonDecode(respStr);
         String? translated_text =
-            "This looks like" + data["caption"] ?? "No description found";
+            "This looks like " + data["caption"] ?? "No description found";
 
         if (widget.language == "ಕನ್ನಡ (Kannada)" && translated_text != null) {
           translated_text = await TranslationService.translateWithMyMemory(
